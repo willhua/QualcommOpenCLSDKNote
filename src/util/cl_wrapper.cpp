@@ -214,7 +214,8 @@ static std::string init_extension_string(cl_device_id device)
     static const size_t BUF_SIZE = 1024;
     char                extensions_buf[BUF_SIZE];
     std::memset(extensions_buf, 0, sizeof(extensions_buf));
-    clGetDeviceInfo(device, CL_DEVICE_EXTENSIONS, sizeof(extensions_buf), extensions_buf, NULL);
+    //会吧本device支持的所有的extensions，以空格为分割符，放在extensions_buf里面
+    clGetDeviceInfo(device, CL_DEVICE_EXTENSIONS, sizeof(extensions_buf), extensions_buf, NULL);    
     return std::string(extensions_buf);
 }
 

@@ -55,6 +55,7 @@ static void write_le(std::ostream &out, UIntType val)
     }
 }
 
+//读取一个type数据
 template <typename UIntType>
 static UIntType read_le(std::istream &in)
 {
@@ -63,7 +64,7 @@ static UIntType read_le(std::istream &in)
     for (uint32_t i = 0; i < sizeof(UIntType); ++i)
     {
         in.get(*reinterpret_cast<char *>(&byte));
-        val |= byte << (i * 8);
+        val |= byte << (i * 8);     //小端内存模式，低位的放在前面
     }
     return val;
 }
@@ -101,9 +102,9 @@ static void read_plane(std::istream &in, uint32_t channel_bytes, uint32_t num_ch
 {
     for (size_t i = 0; i < plane.size() / (channel_bytes * num_channels); ++i)
     {
-        for (size_t j = 0; j < num_channels; ++j)
+        for (size_t j = 0; j < num_channels; ++j)   //先后读取各个通道
         {
-            switch (channel_bytes)
+            switch (channel_bytes)      //读取一个通道的数据
             {
                 case 1:
                 {

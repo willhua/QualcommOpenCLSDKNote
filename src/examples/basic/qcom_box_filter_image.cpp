@@ -41,13 +41,27 @@ static const char *PROGRAM_SOURCE[] = {
 "    int     wid_y            = get_global_id(1);\n",
 "    int2    downscaled_coord = (int2)(wid_x, wid_y);\n",
 "    float2  src_coord        = (float2)((float)wid_x + 0.5f, (float)wid_y + 0.5f) * unpacked_scale;\n",
-"    float4  downscaled_pixel = qcom_box_filter_imagef(src_image, sampler, src_coord, box_size);\n",
+"    float4  downscaled_pixel = qcom_box_filter_imagef(src_image, sampler, src_coord, box_size);\n",    //高通内置函数qcom_box_filter_imagef
 "    write_imagef(downscaled_image, downscaled_coord, downscaled_pixel);\n",
 "}\n"
 };
 
 static const cl_uint PROGRAM_SOURCE_LEN = sizeof(PROGRAM_SOURCE) / sizeof(const char *);
 
+/*
+1:对于nv21的图, 每次都是创建一个image_channel_order = CL_QCOM_NV12;的大cl_mem = clcreateImage对象, 然后基于
+    此cl_mem分别clCreateImage Y和UV cl_mem对象, 然后再分别对两组平面Y和UV进行kernel计算. 值得注意的是, 创建UV cl_mem
+    对象的时候, 宽高是完整图片的宽高,而不是实际UV像素的宽高. 而且map指针的时候,也不需要做偏置,这个应该是Qcom的扩展驱动自动进行了处理.
+
+2:在map了指针,使用memcpy分别对Y和UV cl_mem对象拷贝数据的时候,使用了map返回的row_pitch参数. 然后再一行一行的拷贝数据. 这也许意味着,
+    1:高通的扩展对NV12的cl_mem对象的内存做了一些额外的内存对齐;2:自己以后在写此类代码的时候也需要考虑这点,即可能的内存对齐
+
+3:可以基于同一个program对象上创建两个同名的kernel
+
+4:本例中对于src和out,创建大的NV12 cl_mem的时候,都使用了分配的NV12 ION内存. 但是即使对于src, 也没有直接把数据memcpy到ION内存了, 而
+    是等到分别对子Y和UV对象分别map得到指针之后才做的memcpy
+
+*/
 int main(int argc, char** argv)
 {
     if (argc < 3)
@@ -61,7 +75,7 @@ int main(int argc, char** argv)
 
     cl_wrapper wrapper;
     cl_program   program             = wrapper.make_program(PROGRAM_SOURCE, PROGRAM_SOURCE_LEN);
-    cl_kernel    y_plane_kernel      = wrapper.make_kernel("downscale_single_plane", program);
+    cl_kernel    y_plane_kernel      = wrapper.make_kernel("downscale_single_plane", program);  //基于同一个program可以创建多个相同的kernel对象
     cl_kernel    uv_plane_kernel     = wrapper.make_kernel("downscale_single_plane", program);
     cl_context   context             = wrapper.get_context();
     nv12_image_t src_nv12_image_info = load_nv12_image_data(src_image_filename);
@@ -118,7 +132,7 @@ int main(int argc, char** argv)
             &src_nv12_desc,
             &src_nv12_ion_mem,
             &err
-    );
+    ); 
     if (err != CL_SUCCESS)
     {
         std::cerr << "Error " << err << " with clCreateImage for source image." << "\n";
@@ -170,7 +184,7 @@ int main(int argc, char** argv)
             CL_MEM_READ_ONLY,
             &src_y_plane_format,
             &src_y_plane_desc,
-            NULL,
+            NULL,   //没有指定指针
             &err
     );
     if (err != CL_SUCCESS)
@@ -186,6 +200,7 @@ int main(int argc, char** argv)
     cl_image_desc src_uv_plane_desc;
     std::memset(&src_uv_plane_desc, 0, sizeof(src_uv_plane_desc));
     src_uv_plane_desc.image_type   = CL_MEM_OBJECT_IMAGE2D;
+    //NOTICE!!!
     // The image dimensions for the uv-plane derived image must be the same as the parent image, even though the
     // actual dimensions of the uv-plane differ by a factor of 2 in each dimension.
     src_uv_plane_desc.image_width  = src_nv12_image_info.y_width;
@@ -197,7 +212,7 @@ int main(int argc, char** argv)
             CL_MEM_READ_ONLY,
             &src_uv_plane_format,
             &src_uv_plane_desc,
-            NULL,
+            NULL,   //并没有指定指针，
             &err
     );
     if (err != CL_SUCCESS)
@@ -246,7 +261,7 @@ int main(int argc, char** argv)
 
     cl_mem out_uv_plane = clCreateImage(
             context,
-            CL_MEM_WRITE_ONLY,
+            CL_MEM_WRITE_ONLY,  //虽然后面有通过map来把此对象的内存拷贝到host,但是这里也没用到和host相关的memory flag,可能是和使用了ION内存有关
             &out_uv_plane_format,
             &out_uv_plane_desc,
             NULL,
@@ -257,7 +272,7 @@ int main(int argc, char** argv)
         std::cerr << "Error " << err << " with clCreateImage for destination image uv plane." << "\n";
         std::exit(err);
     }
-
+    //TODO:
     /*
      * Step 3: Copy data to input image planes. Note that for linear NV12 images you must observe row alignment
      * restrictions. (You may also write to the ion buffer directly if you prefer, however using clEnqueueMapImage for
@@ -315,7 +330,7 @@ int main(int argc, char** argv)
             CL_MAP_WRITE,
             origin,
             src_uv_region,
-            &row_pitch,
+            &row_pitch, //返回的row_pitch在memcpy的时候有用到
             NULL,
             0,
             NULL,
@@ -439,6 +454,8 @@ int main(int argc, char** argv)
         std::exit(err);
     }
 
+    //运算时使用的是处理之后out的宽高
+    //先执行Y平面的处理, 然后执行UV平面的处理
     const size_t y_plane_work_size[] = {out_y_plane_desc.image_width, out_y_plane_desc.image_height};
     err = clEnqueueNDRangeKernel(
             command_queue,
