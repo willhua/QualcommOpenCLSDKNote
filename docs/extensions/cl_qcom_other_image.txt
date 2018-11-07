@@ -1,0 +1,262 @@
+Name Strings
+
+    cl_qcom_other_image
+
+Contributors
+
+    Balaji Calidas, Qualcomm Technologies, Inc.
+    Roto Le, Qualcomm Technologies, Inc.
+    Manali Torpe, Qualcomm Innovation Center, Inc.
+    Chris Grimm, Qualcomm Technologies, Inc.
+
+Contact
+
+    bcalidas at qti dot qualcomm dot com
+
+Version
+
+    Version 6, 2018/04/25
+
+Status
+
+    Shipping
+
+Extension Type
+
+    OpenCL device extension
+
+Dependencies
+
+    OpenCL 2.0 or later is required.
+
+    cl_qcom_android_native_buffer_host_ptr or cl_qcom_ion_host_ptr is required.
+
+    This extension is written against the OpenCL 2.0 Specification.
+
+Overview
+
+    This extension enables an application to read from and/or write to
+    non-conventional OpenCL image objects. Examples of non-conventional images
+    are planar images such as NV12 or TP10, MIPI packed images, Bayer pattern
+    images and tiled images. These images do not conform to the standards for
+    images as described in the OpenCL specification. Therefore they are not
+    exposed directly through OpenCL. Instead they are exposed through this
+    extension. These images are supported on select Qualcomm GPUs.
+
+    An application can use this extension to query supported non-conventional
+    image formats. It can then create an image of a supported non-conventional
+    format from an ION or ANB allocation. Only reads and writes of this image
+    from inside a CL kernel are defined, as well as a limited use of the
+    clEnqueueMapImage host API described below.
+
+Header File
+
+    cl_ext_qcom.h
+
+New Procedures and Functions
+
+    None
+
+New Tokens
+
+    Added to the list of supported cl_mem_flags by clCreateImage in
+    Table 5.3 of the OpenCL 2.0 Specification.
+
+        CL_MEM_OTHER_IMAGE_QCOM
+
+Additions to Chapter 5.3.1 of the OpenCL 2.0 Specification
+(Creating Image Objects)
+(Append to the section introduced by cl_qcom_ion_host_ptr extension)
+
+    Non-conventional images can be created from ION buffers in much the same way
+    as conventional images. <host_ptr>->allocation_type should be set to
+    CL_MEM_ION_HOST_PTR_QCOM . The application is responsible for the layout of
+    the non-conventional image data held in an ION allocation, which must follow
+    the structure defined by the image format. Any deviation from the standard
+    will lead to undefined results.
+
+    While creating non-conventional images, when CL_MEM_EXT_HOST_PTR_QCOM is
+    enabled in the <flags> argument, the image_row_pitch and image_slice_pitch
+    fields of cl_image_desc must be set to 0.
+
+Additions to Chapter 5.3.2 of the OpenCL 2.0 Specification
+(Querying List of Supported Image Formats)
+
+    When CL_MEM_OTHER_IMAGE_QCOM is enabled in the <flags> argument, the
+    implementation will return a list of supported non-conventional image
+    formats. CL_MEM_READ_ONLY, CL_MEM_WRITE_ONLY, CL_MEM_READ_WRITE and
+    CL_MEM_KERNEL_READ_AND_WRITE flags retain the same meaning as for
+    conventional image formats.
+
+Additions to Chapter 5.3.6 of the OpenCL 2.0 Specification
+(Mapping Image Objects)
+(Append to description of clEnqueueMapImage function)
+
+    If the image is of a non-conventional format enabled by
+    CL_MEM_OTHER_IMAGE_QCOM, then mapping a region has a special meaning that is
+    only defined under certain conditions. All other uses will invoke undefined
+    behavior. If origin[0], origin[1] and origin[2] are all 0, the value of
+    region specifies the entire image, and the image was created with a valid
+    ION or ANB allocation, then this function will return a valid host pointer
+    to the start of the underlying ION or ANB allocation. Additionally, any
+    necessary cache operations will be performed to ensure appropriate data
+    visibility. The object must be unmapped using clEnqueueUnmapMemObject when
+    host access is complete to ensure that any changes become visible.
+
+Additions to Chapter 6.13.14.2 of the OpenCL-C 2.0 Specification
+(Built-in Image Read Functions)
+
+    The sampler used for reading non-conventional images can take the following
+    values: CLK_FILTER_NEAREST and CLK_FILTER_LINEAR for the sampler's filter
+    mode. CLK_ADDRESS_NONE, CLK_ADDRESS_CLAMP and CLK_ADDRESS_CLAMP_TO_EDGE for
+    the sampler's addressing mode. For some non-conventional image formats there
+    may be restrictions on which filter modes and which addressing modes can be
+    used.
+
+Android Native Buffer Option
+
+    On Android platforms it is possible to create a non-conventional image from
+    ANativeWindowBuffer (ANB) aka graphics buffer. The application is
+    responsible for creating an ANB buffer of appropriate format and size which
+    can be used to store the non-conventional image data.
+
+Additions to Chapter 5.3.1 of the OpenCL 2.0 Specification
+(Creating Image Objects)
+
+(Append to the section introduced by cl_qcom_android_native_buffer_host_ptr
+extension)
+
+    Non-conventional images can be created from ANB buffers in much the same way
+    as conventional images. <host_ptr>->allocation_type should be set to
+    CL_MEM_ANDROID_NATIVE_BUFFER_HOST_PTR_QCOM. The application is responsible
+    for the layout of non-conventional image data held in an ANB allocation,
+    which must follow the structure defined by Qualcomm compression standard.
+    Any deviation from the standard will lead to undefined results. While
+    creating non-conventional images, when CL_MEM_EXT_HOST_PTR_QCOM is enabled
+    in the <flags> argument, the image_row_pitch and image_slice_pitch fields of
+    cl_image_desc must be set to 0.
+
+    Compressed Planar Images
+
+    It is possible to combine the cl_qcom_other_image extension with the
+    cl_qcom_compressed_image_extension to create images that are both compressed
+    and non-conventional. An example would be CL_QCOM_COMPRESSED_NV12. Such
+    images may be queried by enabling CL_MEM_OTHER_IMAGE_QCOM |
+    CL_MEM_COMPRESSED_IMAGE_QCOM in the flags argument of
+    clgetSupportedImageFormats. These images can be created in the same manner
+    as conventional images using ION or ANB buffers.
+
+    Mem Flags Usage
+
+    When querying non-conventional and/or compressed image formats, it is
+    important to use the correct mem flags. CL_MEM_OTHER_IMAGE_QCOM will query
+    the non-conventional and uncompressed image formats.
+    CL_MEM_OTHER_IMAGE_QCOM | CL_MEM_COMPRESSED_IMAGE_QCOM will query the
+    non-conventional and compressed image formats. CL_MEM_COMPRESSED_IMAGE_QCOM
+    when used alone will query the conventional compressed image formats such as
+    CL_QCOM_COMPRESSED_RGBA.
+
+Sample Code
+
+    1) Querying supported formats for read_only non-conventional images
+
+        #define MAX_NUM_FORMATS 128
+
+        cl_image_format format_list[ MAX_NUM_FORMATS] = {0};
+        cl_int          num_format_list_entries       = MAX_NUM_FORMATS;
+        cl_int          num_reported_image_formats    = 0;
+        cl_int          errcode                       = 0;
+
+        // Query the supported formats for compressed non-conventional images
+        errcode = clGetSupportedImageFormats(context,
+            CL_MEM_READ_ONLY | CL_MEM_OTHER_IMAGE_QCOM |
+                CL_MEM_COMPRESSED_IMAGE_QCOM,
+            CL_MEM_OBJECT_IMAGE2D,
+            num_format_list_entries,
+            format_list,
+            &num_reported_image_formats);
+
+    2) Creating an ION buffer for holding non-conventional image data.
+
+        cl_mem_ion_host_ptr nv12_ionmem = {0};
+
+        // Initialize ION buffer attributes
+        nv12_ionmem.ext_host_ptr.allocation_type = CL_MEM_ION_HOST_PTR_QCOM;
+        nv12_ionmem.ext_host_ptr.host_cache_policy = CL_MEM_HOST_UNCACHED_QCOM;
+        // file descriptor for ION
+        nv12_ionmem.ion_filedesc = ion_info_fd.file_descriptor;
+        // hostptr returned by ION
+        nv12_ionmem.ion_hostptr = ion_info.host_virtual_address;
+
+    3) Using cl_qcom_ion_host_ptr holding planar image data to create a
+       non-conventional compressed NV12 image object.
+
+        cl_image_format image_format = {0};
+        cl_image_desc   image_desc   = {0};
+        cl_int          errcode      = 0;
+
+        // Set image format
+        image_format->image_channel_order      = CL_QCOM_COMPRESSED_NV12;
+        image_format->image_channel_data_type  = CL_UNORM_INT8;
+
+        // Set image parameters. image_height and image_row_pitch are always 0
+        // for non-conventional images.
+        image_desc->image_width = 256;
+        image_desc->image_height = 256;
+        image_desc->image_row_pitch = 0;
+        image_desc->image_slice_pitch = 0;
+
+        // Create a non_conventional image
+        other_image = clCreateImage(context,
+            CL_MEM_EXT_HOST_PTR_QCOM|CL_MEM_READ_ONLY,
+            image_format,
+            image_desc,
+            (void*)nv12_ionmem,
+            &errcode);
+
+    4) Creating an ANB buffer for holding planar image data
+
+        cl_mem_android_native_buffer_host_ptr  other_anb           = {0};
+        GraphicBuffer *gb; // previously created
+
+        other.ext_host_ptr.allocation_type =
+            CL_MEM_ANDROID_NATIVE_BUFFER_HOST_PTR_QCOM;
+        other.ext_host_ptr.host_cache_policy = CL_MEM_HOST_WRITEBACK_QCOM;
+        // the hostptr to a native buffer and gb is an Android GraphicBuffer
+        other.anb_ptr = gb->getNativeBuffer();
+
+    5) Using cl_qcom_android_native_buffer_host_ptr holding planar image data to
+       create a non-conventional image object.
+
+        cl_image_format image_format = {0};
+        cl_image_desc   image_desc   = {0};
+        cl_int          errcode      = 0;
+
+        // Set image format
+        image_format->image_channel_order     = CL_QCOM_COMPRESSED_NV12;
+        image_format->image_channel_data_type = CL_QCOM_UNORM_INT8;
+
+        // Set image parameters. image_height and image_row_pitch are always 0
+        // for non-conventional images.
+        image_desc->image_width = 256;
+        image_desc->image_height = 256;
+        image_desc->image_row_pitch = 0;
+        image_desc->image_slice_pitch = 0;
+
+        // Create a non-conventional  image
+        nv12_img = clCreateImage(context,
+            CL_MEM_EXT_HOST_PTR_QCOM | CL_MEM_READ_ONLY,
+            image_format,
+            image_desc,
+            (void*)other_anb,
+            &errcode);
+
+Revision History
+
+    Revision 1, 2016/09/02: Initial version.
+    Revision 2, 2017/06/16: Clean up. No functional changes.
+    Revision 3, 2017/09/13: Clarified Mem Flags usage.
+    Revision 4, 2017/11/13: Clean up. No functional changes.
+    Revision 5, 2018/01/19: Formatting and misc changes. No functional changes.
+    Revision 6, 2018/04/25: Document map behavior.
+

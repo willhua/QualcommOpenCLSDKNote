@@ -1,0 +1,188 @@
+Name Strings
+
+    cl_qcom_extract_image_plane
+
+Contributors
+
+    Roto Le, Qualcomm Technologies, Inc.
+    Balaji Calidas, Qualcomm Technologies, Inc.
+
+Contact
+
+    bcalidas at qti dot qualcomm dot com
+
+Version
+
+    Version 5, 2018/01/19
+
+Status
+
+    Shipping
+
+Extension Type
+
+    OpenCL device extension
+
+Dependencies
+
+    OpenCL 2.0 and the cl_qcom_other_image and cl_qcom_compressed_image
+    extension are required.
+
+    This extension is written against OpenCL 2.0 rev 26, cl_qcom_other_image
+    rev 1, and cl_qcom_compressed_image rev 1.
+
+Overview
+
+    This extension allows an application to create a single plane derivative of
+    a multi-plane planar image. This would allow the application to process each
+    plane of a planar image as a separate image. For example a YUV image could
+    be split into Y-only and UV-only images. Image processing could be applied
+    exclusively to the Y-only image. Also, on some GPUs, direct writes to a YUV
+    image may not be supported but writes to Y-only and UV-only images may be
+    available. The child derivative images and the parent planar image both
+    reference the same image data. No data copy is involved.
+
+Header File
+
+    None
+
+New Procedures and Functions
+
+    None
+
+New Tokens
+
+    None
+
+Additions to Chapter 5.3 of the OpenCL 2.0 Specification
+
+    The function
+
+    cl_mem  clCreateImage(cl_context              context,
+                          cl_mem_flags            flags,
+                          const cl_image_format * image_format,
+                          const cl_image_desc *   image_desc,
+                          void *                  host_ptr,
+                          cl_int *                errcode_ret)
+
+    can be used to create child images from an existing parent planar image.
+
+    <image_desc> is a pointer to a structure that describes type and dimensions
+    of the child image to be created.
+
+    * image_desc->mem_object refers to a valid planar image memory object, which
+      is the parent image of the to be created child images.
+
+    * image_desc->image_type must match exactly the type of the parent image
+      object and it must also be supported image type for the given
+      <image_format>.
+
+    * image_desc's dimensions must match exactly the dimensions of the parent
+      image object.
+
+    * image_desc's pitches (i.e image_row_pitch, image_slice_pitch) must be set
+      to zero.
+
+    <context> is a valid OpenCL context on which the image object is to be
+    created.
+
+    * context must be identical to the context of the parent image object.
+
+    <image_format> holds the format of the to be created child image.
+
+    * The child image_format must be a single plane derivative of the parent
+      image. For example CL_QCOM_NV12_Y and CL_QCOM_NV12_UV are derivatives of
+      CL_QCOM_NV12.
+
+    * The compression type or packing type of the child image formats must match
+      exactly that of the parent image. For example creating a linear
+      CL_QCOM_NV12_Y child image from a compressed CL_QCOM_COMPRESSED_NV12
+      parent image is not valid.
+
+    <flags> is a bit-field that is used to specify allocation and usage
+    information about the image memory object to be created and is described in
+    Table 5.3.
+
+    * The read/write bits in the <flags> must be set according to the read/write
+      capability supported for the <image_format>.
+
+    * CL_MEM_USE_HOST_PTR, CL_MEM_ALLOC_HOST_PTR, and CL_MEM_COPY_HOST_PTR
+      cannot be set for the <flags> when creating a child image.
+
+    <host_ptr> must be set to NULL.
+
+    <errcode_ret> will return an appropriate error code. If <errcode_ret> is
+    NULL, no error code is returned.
+
+    * CL_INVALID_IMAGE_SIZE if image dimensions specified in image_desc do not
+      match the dimensions of the parent image.
+
+    * CL_INVALID_IMAGE_DESCRIPTOR if values specified in image_desc do not
+      satisfy the rules for <image_desc>->mem_object and the child image's
+      pitches specified above.
+
+    * CL_INVALID_IMAGE_FORMAT_DESCRIPTOR if image_format does not sastisfy the
+      rules for the child image formats specified above.
+
+    If the call succeeds, the returned child image object references the image
+    data of the parent image's plane specified by the child <image_format>. The
+    child image data & its layout therefore is identical to the associated plane
+    on the parent image with <origin> is (0,0,0) and <region> is (<width>,
+    <height>, <depth>). It is important to notice that coordinate offset is not
+    allowed on the child image.
+
+    Concurrent reading from and writing to both a child image object and its
+    parent image object is undefined. Concurrent reading from and writing to
+    child images created with the same parent image is undefined. Only
+    concurrent reading from both a child image and its parent image, and
+    concurrent reading from multiple child images created from the same parent
+    image is defined.
+
+Sample Code
+
+    // Create a 2D CL_QCOM_COMPRESSED_NV12_Y child image from an existing 2D
+    // CL_QCOM_COMPRESSED_NV12 parent image.
+
+    cl_int          errcode               = CL_SUCCESS;
+    cl_mem_flags    child_image_flag      = {0};
+    cl_image_desc   child_image_desc      = {0};
+    cl_image_format child_planar_y_format = {0};
+
+    // Query the parent_image's dimensions
+    error_code = clGetImageInfo (&parent_planar_image, CL_IMAGE_WIDTH,
+        sizeof(size_t), (void*)&parent_image_width, NULL);
+    if(error_code != CL_SUCCESS) exit(-1);
+
+    error_code = clGetImageInfo (&parent_planar_image, CL_IMAGE_WIDTH,
+        sizeof(size_t), (void*)&parent_image_height, NULL);
+    if(error_code != CL_SUCCESS) exit(-1);
+
+    // Setting the image_desc & image_format for creating the child_image
+    child_planar_y_format.image_channel_order     = CL_UNORM_INT8;
+    child_planar_y_format.image_channel_data_type = CL_QCOM_COMPRESSED_NV12_Y;
+
+    child_image_desc.image_type         = CL_MEM_OBJECT_IMAGE2D;
+    child_image_desc.image_width        = parent_image_width;
+    child_image_desc.image_height       = parent_image_height;
+    child_image_desc.image_row_pitch    = 0;
+    child_image_desc.image_slice_pitch  = 0;
+    child_image_desc.mem_object         = parent_planar_image;
+
+    child_image_flag                    = CL_MEM_READ_WRITE;
+
+    child_y_image = clCreateImage(context,
+                                  child_image_flag,
+                                  child_planar_y_format,
+                                  &child_image_desc,
+                                  NULL, // host_ptr must be set to NULL
+                                  &errcode);
+    if(errcode != CL_SUCCESS) exit(-1);
+
+Revision History
+
+    Revision 1, 2016/12/06: First draft.
+    Revision 2, 2017/03/19: Second draft.
+    Revision 3, 2017/06/16: Clean up. No functional changes.
+    Revision 4, 2017/11/13: Clean up. No functional changes.
+    Revision 5, 2018/01/19: Formatting and misc changes. No functional changes.
+

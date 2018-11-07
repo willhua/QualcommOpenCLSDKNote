@@ -1,0 +1,363 @@
+Name Strings
+
+    cl_qcom_protected_context
+
+Contributors
+
+    Sreelakshmi Haridas Maruthur, Qualcomm Innovation Center, Inc.
+    Balaji Calidas, Qualcomm Technologies, Inc.
+
+Contact
+
+    sharidas at quicinc dot com
+
+Version
+
+    Version 5, 2018/01/19
+
+Status
+
+    Shipping
+
+Extension Type
+
+    OpenCL device extension
+
+Dependencies
+
+    OpenCL 1.2 or later is required.
+
+    cl_qcom_android_native_buffer_host_ptr or cl_qcom_ion_host_ptr is required.
+
+    This extension is written against the OpenCL 1.2 Specification.
+
+Overview
+
+    This extension allows applications to create protected OpenCL contexts. An
+    OpenCL command-queue that is created on a protected context is implicitly
+    considered protected as well.
+
+    Protected OpenCL contexts enable use of the Content Protection feature
+    available on specific Qualcomm GPUs. The main principle behind this feature
+    is to separate memory into protected and unprotected zones and prevent
+    copying of data from protected to unprotected memory.
+
+    On Android, a protected graphics buffer can be allocated using the
+    GRALLOC_USAGE_PROTECTED usage flag, and can be accessed in OpenCL by using
+    the cl_qcom_android_native_buffer_host_pointer extension with
+    clCreateBuffer or clCreateImage2D. Alternatively, a protected ION
+    allocation can be created from the protected heap using the ION_SECURE flag,
+    and can be accessed in OpenCL by using the cl_qcom_ion_host_pointer
+    extension with clCreateBuffer or clCreateImage2D. In both cases, the
+    buffer is considered a protected memory object by by OpenCL.
+
+    An OpenCL application that enqueues kernel(s) with one or more protected
+    memory objects as arguments can only do so on a protected command-queue.
+
+Header File
+
+    cl_ext_qcom.h
+
+New Procedures and Functions
+
+    None
+
+New Tokens
+
+    Added to the list of supported properties by clCreateContext in
+    Table 4.5 of the OpenCL 1.2 Specification.
+
+        CL_CONTEXT_PROTECTED_QCOM       0x40C7
+
+Addition to the extension document for cl_qcom_android_native_buffer_host_ptr
+
+    If the graphics buffer represented by anb_ptr was created securely in the
+    protected zone, the CL object created from it using clCreateBuffer or
+    clCreateImage2D on a protected queue will be treated as a protected
+    memory object.
+
+    However if this is being done on a normal queue, the call to clCreateBuffer
+    or clCreateImage2D will fail with an error of CL_OUT_OF_HOST_MEMORY
+
+
+Additions to Chapter 4.4 of the OpenCL 1.2 Specification
+(Contexts)
+
+    Add the following tokens to Table 4.4
+    (List of supported properties by clCreateContext)
+
+        CL_CONTEXT_PROTECTED_QCOM  cl_bool  Specifies that this context should
+                                            be created as protected
+
+    Add the following error descriptions for clCreateContext:
+
+        * CL_INVALID_PROPERTY if the the context property
+          CL_CONTEXT_PROTECTED_QCOM is specified and at least one of the devices
+          in <devices> does not support creation of protected contexts
+
+    Add the following error descriptions for clCreateContextFromType:
+
+        * CL_INVALID_PROPERTY if the the context property
+          CL_CONTEXT_PROTECTED_QCOM is specified and the device identified by
+          <device_type> does not support creation of protected contexts
+
+Additions to Chapter 5.1 of the OpenCL 1.2 Specification
+(Command Queues)
+
+    Add the following line to the description for clCreateCommandQueue
+
+    A command-queue that is created on a protected <context> implicitly
+    becomes a protected command-queue
+
+    Add the following error descriptions for clCreateCommandQueue:
+
+    * CL_INVALID_QUEUE_PROPERTIES if <properties> contains
+      CL_QUEUE_PROFILING_ENABLE and <context> is a protected context.
+
+Additions to Chapter 5.2.1 of the OpenCL 1.2 Specification
+(Creating Buffer Objects)
+(Append to the section introduced by cl_qcom_ion_host_ptr extension)
+
+    New token accepted as the value of <host_ptr>->allocation_type
+
+    CL_MEM_ION_HOST_PTR_PROTECTED_QCOM
+
+    Rules for using the new allocation_type CL_MEM_ION_HOST_PTR_PROTECTED_QCOM
+
+    When <host_ptr>->allocation_type is equal to
+    CL_MEM_ION_HOST_PTR_PROTECTED_QCOM:
+
+    * <host_ptr> will be interpreted as a pointer to cl_mem_ion_host_ptr
+
+    * <host_ptr>->host_cache_policy must be equal to CL_MEM_HOST_UNCACHED_QCOM
+
+    * <host_ptr>->ion_filedesc must be the file descriptor of the ION memory
+      allocation that the application wants to use as storage bits for the
+      memory object.
+
+Additions to Section 5.2.2 of the OpenCL 1.2 Specification
+(Reading, Writing and Copying Buffer Objects)
+
+    Add the following error description for clEnqueueReadBuffer and
+    clEnqueueWriteBuffer:
+
+    * CL_INVALID_OPERATION if <buffer> is a protected memory object
+
+    Add the following error description for clEnqueueReadBufferRect and
+    clEnqueueWriteBufferRect:
+
+    * CL_INVALID_OPERATION if <buffer> is a protected memory object
+
+    Add the following error description for clEnqueueCopyBuffer
+
+    * CL_INVALID_OPERATION if <src_buffer> is a protected memory object and
+      <dst_buffer> is not a protected memory object
+
+    Add the following error description for clEnqueueCopyBufferRect
+
+    * CL_INVALID_OPERATION if <src_buffer> is a protected memory object and
+      <dst_buffer> is not a protected memory object
+
+Additions to Section 5.2.4 of the OpenCL 1.2 Specification
+(Mapping Buffer Objects)
+
+    Add the following error description for clEnqueueMapBuffer:
+
+    * CL_INVALID_OPERATION if <buffer> is a protected memory object
+
+Additions to Chapter 5.3.1 of the OpenCL 1.2 Specification
+(Creating Image Objects)
+(Append to the section introduced by cl_qcom_ion_host_ptr extension)
+
+    New token accepted as the value of <host_ptr>->allocation_type
+
+    CL_MEM_ION_HOST_PTR_PROTECTED_QCOM           0x40C8
+
+    Rules for using the new allocation_type CL_MEM_ION_HOST_PTR_PROTECTED_QCOM
+
+    When <host_ptr>->allocation_type is equal to
+    CL_MEM_ION_HOST_PTR_PROTECTED_QCOM:
+
+    * <host_ptr> will be interpreted as a pointer to cl_mem_ion_host_ptr
+
+    * <host_ptr>->host_cache_policy must be equal to CL_MEM_HOST_UNCACHED_QCOM
+
+    * <host_ptr>->ion_filedesc must be the file descriptor of the ION memory
+      allocation that the application wants to use as storage bits for the
+      memory object.
+
+Additions to Section 5.3.3 of the OpenCL 1.2 Specification
+(Reading, Writing and Copying Image Objects)
+
+    Add the following error description for clEnqueueReadImage and
+    clEnqueueWriteImage:
+
+    * CL_INVALID_OPERATION if <image> is a protected memory object
+
+    Add the following error description for clEnqueueCopyImage
+
+    * CL_INVALID_OPERATION if <src_image> is a protected memory object and
+      <dst_image> is not a protected memory object
+
+Additions to Section 5.3.5 of the OpenCL 1.2 Specification
+(Copying between Image and Buffer Objects)
+
+    Add the following error description for clEnqueueCopyImageToBuffer
+
+    * CL_INVALID_OPERATION if <src_image> is a protected memory object and
+      <dst_buffer> is not a protected memory object
+
+    Add the following error description for clEnqueueCopyBufferToImage
+
+    * CL_INVALID_OPERATION if <src_buffer> is a protected memory object and
+      <dst_image> is not a protected memory object
+
+Additions to Section 5.3.6 of the OpenCL 1.2 Specification
+(Mapping Image Objects)
+
+    Add the following error description for clEnqueueMapImage:
+
+    * CL_INVALID_OPERATION if <image> is a protected memory object
+
+Additions to Section 5.4.2 of the OpenCL 1.2 Specification
+(Unmapping mapped memory objects)
+
+    Add the following error description for clEnqueueUnmapMemObject:
+
+    * CL_INVALID_OPERATION if <memobj> is a protected memory object
+
+Additions to Chapter 5.8 of the OpenCL 1.2 Specification
+(Executing Kernels)
+
+    Add the following error description for clEnqueueNDRangeKernel:
+
+    * CL_INVALID_OPERATION if the at least one of the arguments to <kernel>
+      is a protected memory object and <command_queue> is an unprotected queue.
+
+    Add the following error description for clEnqueueTask:
+
+    * CL_INVALID_OPERATION if the at least one of the arguments to <kernel>
+      is a protected memory object and <command_queue> is an unprotected queue.
+
+Additions to Section 6.12.13 of the OpenCL 1.2 Specification
+(printf)
+
+    Add the following to the description for the printf function in Table 6.21
+
+    printf will not work within kernels enqueued on a protected command-queue.
+    No error will be returned but the results will be undefined.
+
+Sample Code
+
+    1) Creating protected contexts
+
+        // Creating protected OpenCL contexts and command queues
+
+        cl_platform_id        platform_id       = NULL;
+        cl_device_id          device_id         = NULL;
+        cl_context            protected_context = NULL;
+        cl_command_queue      protected_queue   = NULL;
+        int                   err               = 0;
+        cl_context_properties properties[]      =
+            {CL_CONTEXT_PROTECTED_QCOM, 1, 0};
+
+        // Create an OpenCL platform
+        err = clGetPlatformIDs(1, &platform_id, NULL);
+
+        // Obtain a GPU device
+        err = clGetDeviceIDs(platform_id, CL_DEVICE_TYPE_GPU, 1, &device_id, 0);
+
+        // Create a protected context
+        protected_context = clCreateContext(properties, 1, &device_id, NULL,
+            NULL, &err);
+
+        // Create a protected command queue
+        protected_queue = clCreateCommandQueue(protected_context, device_id, 0,
+            &err);
+
+    2) Using cl_qcom_android_native_buffer_host_ptr for protected object import
+
+        // Using the extension for importing protected Android Native Buffers as
+        // CL buffer objects
+
+        unsigned int                          usage             = 0;
+        cl_int                                result            = 0;
+        int                                   err               = 0;
+        cl_context                            protected_context = NULL;
+        cl_mem_android_native_buffer_host_ptr anbmem;
+        <GraphicBuffer>                       gBuffer;
+
+        // Create a protected context and command queue as in example 1
+
+        // Create an android graphics buffer in the protected zone
+        usage = GRALLOC_USAGE_PRIVATE_MM_HEAP | GRALLOC_USAGE_PROTECTED |
+            GRALLOC_USAGE_PRIVATE_UNCACHED;
+        gBuffer = new GraphicBuffer(1024,1024, HAL_PIXEL_FORMAT_RGBA_8888,
+            usage);
+
+        // create a protected mem object from the graphics buffer
+        anbmem->ext_host_ptr.allocation_type =
+            CL_MEM_ANDROID_NATIVE_BUFFER_HOST_PTR_QCOM;
+        anbmem->ext_host_ptr.host_cache_policy = CL_MEM_HOST_UNCACHED_QCOM;
+        anbmem.anb_ptr = gBuffer->getNativeBuffer();
+
+        protected_memobj = clCreateBuffer(protected_context,
+            CL_MEM_USE_HOST_PTR | CL_MEM_EXT_HOST_PTR_QCOM, DATA_SIZE, &anbmem,
+            &err);
+
+    3) Using cl_qcom_ion_host_ptr to import protected memory object
+
+        // Using the extension for importing protected ION allocations as CL
+        // buffer objects
+
+        cl_mem              protected_mem_object     = NULL;
+        int                 err                      = 0;
+        cl_int              result                   = 0;
+        int                 ext_mem_padding_in_bytes = 0;
+        int                 device_page_size         = 0;
+        cl_mem_ion_host_ptr myionmem                 = {0};
+
+        // Query the device's page size and the amount of padding necessary at
+        // the end of the buffer.
+        clGetDeviceInfo(device, CL_DEVICE_PAGE_SIZE_QCOM,
+            sizeof(device_page_size), &device_page_size, NULL);
+        clGetDeviceInfo(device, CL_DEVICE_EXT_MEM_PADDING_IN_BYTES_QCOM,
+            sizeof(ext_mem_padding_in_bytes), &ext_mem_padding_in_bytes, NULL);
+
+        // Compute the desired size for the data in the buffer.
+        buffer_size_in_bytes = foobar();
+
+        // Compute amount of memory that needs to be allocated for the buffer
+        // including padding.
+        buffer_size_with_padding = buffer_size_in_bytes +
+            ext_mem_padding_in_bytes;
+
+        // Make a protected ION memory allocation of size
+        // buffer_size_with_padding here. Let's say the parameters of the
+        // allocation are stored in a struct named ion_info that we will use
+        // below.
+
+        // Create an OpenCL buffer object that uses ion_info as its data store.
+        // Notice how the buffer is created with size buffer_size_in_bytes, not
+        // buffer_size_with_padding.
+        myionmem.ext_host_ptr.allocation_type =
+            CL_MEM_ION_HOST_PTR_PROTECTED_QCOM;
+        myionmem.ext_host_ptr.host_cache_policy = CL_MEM_HOST_UNCACHED_QCOM;
+        // file descriptor for ION
+        myionmem.ion_filedesc = ion_info_fd.file_descriptor;
+        // protected allocations cannot be mapped to userspace, so the hostptr 
+        // is set to NULL
+        myionmem.ion_hostptr = NULL;
+
+        buffer_object = clCreateBuffer(context,
+            CL_MEM_USE_HOST_PTR | CL_MEM_EXT_HOST_PTR_QCOM,
+            buffer_size_in_bytes, &myionmem, &err);
+
+Revision History
+
+    Revision 1, 2014/09/09: Initial version.
+    Revision 2, 2017/06/16: Clean up. No functional changes.
+    Revision 3, 2017/10/27: Now a public extension.
+    Revision 4, 2017/11/13: Clean up. No functional changes.
+    Revision 5, 2018/01/19: Formatting and misc changes. No functional changes.
+

@@ -1,0 +1,221 @@
+Name Strings
+
+    cl_qcom_create_buffer_from_image
+
+Contributors
+
+    Alex Bourd, Qualcomm Technologies, Inc.
+    Balaji Calidas, Qualcomm Technologies, Inc.
+    David Garcia, Qualcomm Technologies, Inc.
+    Samuel Pauls, Qualcomm Technologies, Inc.
+
+Contact
+
+    bcalidas at qti dot qualcomm dot com
+
+Version
+
+    Version 7, 2018/01/19
+
+Status
+
+    Shipping
+
+Extension Type
+
+    OpenCL device extension
+
+Dependencies
+
+    OpenCL 1.0 and the cl_qcom_ext_host_ptr extension are required. This
+    extension is written against OpenCL 1.2 rev 15 and cl_qcom_ext_host_ptr
+    rev 1.
+
+Overview
+
+    There are times when developers want to access image data as raw pointers
+    in the OpenCL C language without the safety layer provided by the image
+    read/write builtin functions. One particular case for this would be reading
+    from or writing to EGL external images exposed indirectly to OpenCL through
+    GL/CL interop extensions. Other example would be expert developers who want
+    to read/write multiple pixels with a single memory load/store operation.
+
+Header File
+
+    cl_ext_qcom.h
+
+New Procedures and Functions
+
+    clCreateBufferFromImageQCOM
+
+New Tokens
+
+    Accepted as <param_name> arguments of clGetDeviceImageInfoQCOM:
+
+        CL_BUFFER_FROM_IMAGE_ROW_PITCH_QCOM   0x40C0
+        CL_BUFFER_FROM_IMAGE_SLICE_PITCH_QCOM 0x40C1
+
+Additions to Chapter 5.2 of the OpenCL 1.2 Specification
+
+    The function
+
+    cl_mem clCreateBufferFromImageQCOM(cl_mem        image,
+                                       cl_mem_flags  flags,
+                                       cl_int       *errcode_ret)
+
+    can be used to create a new buffer object from an existing image.
+
+    <image> is a valid image and cannot be of type
+    CL_MEM_OBJECT_IMAGE1D_BUFFER nor can it use CL_MEM_USE_HOST_PTR.
+
+    <flags> is a bit-field that is used to specify allocation and usage
+    information about the buffer memory object being created and is described
+    in Table 5.3.
+
+    <errcode_ret> will return an appropriate error code. If <errcode_ret> is
+    NULL, no error code is returned.
+
+    If the call succeeds, the buffer that is returned references the data store
+    allocated for <image> and points to the origin pixel in this data store. The
+    data layout is equivalent to what is produced by clEnqueueMapImage when
+    <origin> is (0,0,0) and <region> is (<width>, <height>, <depth>). The
+    <image> from which the buffer is created is called the <parent image> of the
+    buffer.
+
+    In order to access the pixel data in the returned buffer correctly, the
+    client must query the parent image row pitch and slice pitch using
+    clGetDeviceImageInfoQCOM with the parameter names
+    CL_BUFFER_FROM_IMAGE_ROW_PITCH_QCOM and
+    CL_BUFFER_FROM_IMAGE_SLICE_PITCH_QCOM. For example, it is incorrect to
+    assume that the row pitch of the data contained in the buffer is simply the
+    image element size multiplied by the image width.
+
+    Concurrent reading from and writing to both a buffer object and its parent
+    image is undefined. Concurrent reading from and writing to buffer objects
+    created with the same parent image is undefined. Only concurrent reading
+    from both a buffer object and its parent image object and concurrent reading
+    from multiple buffer objects created from the same image is defined.
+
+    clCreateBufferFromImageQCOM returns a valid non-zero buffer object and
+    <errcode_ret> is set to CL_SUCCESS if the buffer object is created
+    successfully. Otherwise, it returns a NULL value with one of the following
+    error values returned in <errcode_ret>:
+
+    * CL_INVALID_MEM_OBJECT if <image> is not a valid image object or if it is
+      of type CL_MEM_OBJECT_IMAGE1D_BUFFER.
+
+    * CL_INVALID_VALUE if <image> was created with CL_MEM_WRITE_ONLY and <flags>
+      specifies CL_MEM_READ_WRITE or CL_MEM_READ_ONLY, or if <image> was created
+      with CL_MEM_READ_ONLY and <flags> specifies CL_MEM_READ_WRITE or
+      CL_MEM_WRITE_ONLY, or if <image> was created with CL_MEM_USE_HOST_PTR, or
+      if <flags> specifies CL_MEM_USE_HOST_PTR or CL_MEM_ALLOC_HOST_PTR or
+      CL_MEM_COPY_HOST_PTR.
+
+    * CL_MEM_OBJECT_ALLOCATION_FAILURE if there is a failure to allocate memory
+      for the buffer object.
+
+    * CL_OUT_OF_RESOURCES if there is a failure to allocate resources required
+      by the OpenCL implementation on the device.
+
+    * CL_OUT_OF_HOST_MEMORY if there is a failure to allocate resources required
+      by the OpenCL implementation on the host.
+
+Modifications to Table 5.xxx in cl_qcom_ext_host_ptr
+
+    Additional supported param_names by clGetDeviceImageInfoQCOM
+
+        cl_image_pitch_info_qcom  Return Type  Info returned in param_value
+
+        CL_BUFFER_FROM_IMAGE_     cl_uint      Returns the image row pitch in
+            ROW_PITCH_QCOM                     bytes supported by this device
+                                               in regard to
+                                               cl_qcom_create_buffer_from_image
+
+        CL_BUFFER_FROM_IMAGE_      cl_int      Returns the image row pitch in
+            SLICE_PITCH_QCOM                   bytes supported by this device
+                                               in regard to
+                                               cl_qcom_create_buffer_from_image
+
+Modifications to Table 5.9 in Chapter 5.4 of the OpenCL 1.2. Specification
+
+    The row that defines the semantics of CL_MEM_ASSOCIATED_MEMOBJECT now reads:
+
+        Return memory object from which memobj is created.
+
+        This returns the parent buffer argument specified when
+        clCreateSubBuffer or clCreateImage were called. It also returns the
+        parent image specified when clCreateBufferFromImage was called.
+
+        Otherwise a NULL value is returned.
+
+Issues
+
+    (1) Should we prevent buffers to be created out of
+        CL_MEM_OBJECT_IMAGE1D_BUFFER images?
+
+        RESOLVED: Qualcomm has added the restriction that the image cannot be of
+        type CL_MEM_OBJECT_IMAGE1D_BUFFER.
+
+    (2) How do we define the layout of the data pointed at by the buffer
+        created by clCreateBufferFromImage?
+
+        RESOLVED: The data in the buffer must be linear.
+
+Sample Code
+
+    cl_mem buffer            = NULL;
+    cl_mem image             = NULL;
+    size_t row_pitch         = 0;
+    cl_image_desc image_desc = {0};
+
+    image_desc.buffer            = NULL;
+    image_desc.image_array_size  = 1;
+    image_desc.image_width       = W;
+    image_desc.image_height      = H;
+    image_desc.image_depth       = 1;
+    image_desc.image_row_pitch   = 0;
+    image_desc.image_slice_pitch = 0;
+    image_desc.image_type        = CL_MEM_OBJECT_IMAGE2D;
+    image_desc.num_mip_levels    = 0;
+    image_desc.num_samples       = 0;
+
+    // Create a 2D image
+    clCreateImage(context, CL_MEM_READ_WRITE, format, &image_desc, NULL, NULL);
+
+    // convert the image to a buffer
+    buffer = clCreateBufferFromImageQCOM(image, CL_MEM_READ_WRITE, NULL);
+
+    // retrieve the image row pitch in order to calculate total size
+    clGetDeviceImageInfoQCOM(device,
+                             width,
+                             height,
+                             &format,
+                             CL_BUFFER_FROM_IMAGE_ROW_PITCH_QCOM,
+                             sizeof(row_pitch),
+                             &row_pitch,
+                             NULL);
+
+    // map the buffer for reading using the total image size
+    clEnqueueMapBuffer(queue,
+                       buffer,
+                       CL_TRUE,
+                       CL_MAP_READ,
+                       0,
+                       image_desc.image_height * row_pitch,
+                       0,
+                       NULL,
+                       NULL,
+                       NULL);
+
+Revision History
+
+    Revision 1, 2012/10/17: First draft.
+    Revision 2, 2013/02/28: The implementation doesn't support an image created
+                            with CL_MEM_USE_HOST_PTR.
+    Revision 3, 2013/05/01: clGetDeviceImageInfoQCOM must now be used instead
+                            of clGetImageInfo to get the pitches.
+    Revision 4, 2013/08/27: Created new image pitch tokens for
+                            clGetDeviceImageInfoQCOM.
+    Revision 5, 2017/06/16: Clean up. No functional changes.
+    Revision 6, 2017/11/13: Clean up. No functional changes.
+    Revision 7, 2018/01/19: Formatting and misc changes. No functional changes.

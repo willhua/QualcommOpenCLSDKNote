@@ -1,0 +1,129 @@
+Name Strings
+
+    cl_qcom_priority_hint
+
+Contributors
+
+    Richard Ruigrok, Qualcomm Innovation Center, Inc.
+
+Contact
+
+    bcalidas at qti dot qualcomm dot com
+
+Version
+
+    Version 5, 2018/01/19
+
+Status
+
+    Shipping
+
+Extension Type
+
+    OpenCL device extension
+
+Dependencies
+
+    OpenCL 1.1 or later is required.
+
+    This extension is written against the OpenCL 1.1 specification.
+
+Overview
+
+    This extension allows applications to specify the desired priority for
+    enqueued kernels to be submitted to the device(s) on an OpenCL context.
+
+    Higher priority implies that enqueued kernels may be submitted to the
+    device for processing before other enqueues on other contexts that
+    have lower priority.
+
+    The default behavior selects the priority that would otherwise be used
+    for the context if this extension is not used.
+
+    The hint may be provided at context creation as a context property.
+    The context property may not be updated after context creation.
+
+Header File
+
+    cl_ext_qcom.h
+
+New Procedures and Functions
+
+    None
+
+New Tokens
+
+    Added to the list of supported properties by clCreateContext in
+    Table 4.4 of the OpenCL 1.1 specification.
+
+        CL_CONTEXT_PRIORITY_HINT_QCOM   0x40C9
+
+    New list of supported values for CL_CONTEXT_PRIORITY_HINT_QCOM property
+
+        CL_PRIORITY_HINT_HIGH_QCOM       0x40CA
+        CL_PRIORITY_HINT_NORMAL_QCOM     0x40CB
+        CL_PRIORITY_HINT_LOW_QCOM        0x40CC
+
+
+Additions to Chapter 4.3 of the OpenCL 1.1 Specification
+(Contexts)
+
+    Add the following tokens to Table 4.4
+    (List of supported properties by clCreateContext)
+
+        CL_CONTEXT_PRIORITY_  cl_priority_hint  Specifies the desired priority
+            HINT_QCOM                           level for this context
+
+    Add the following to Table 4.4a
+    (List of supported priority hint values by CL_CONTEXT_PRIORITY_HINT_QCOM)
+
+    List of supported priority hint values and their effect on priority is
+    described in Table 4.4a
+
+        cl_priority_hint              Description
+
+        CL_PRIORITY_HINT_HIGH_QCOM    Requests the highest priority level for
+                                      all submissions for any command, for all
+                                      devices on this context.
+
+        CL_PRIORITY_HINT_NORMAL_QCOM  Requests a balanced priority level for all
+                                      submissions for any command, for all
+                                      devices on this context. This is the
+                                      default.
+
+        CL_PRIORITY_HINT_LOW_QCOM     Requests a lower priority level for all
+                                      submissions for any command, for all
+                                      devices on this context.
+
+    Add the following error descriptions for clCreateContext:
+
+        * CL_INVALID_PROPERTY if the context property
+          CL_CONTEXT_PRIORITY_HINT_QCOM is specified and at least one of the
+          devices in <devices> does not support the priority hint property
+
+    Add the following to Table 4.6
+    (List of supported param_names by clGetContextInfo)
+    append to the entry for CL_CONTEXT_PROPERTIES
+
+        cl_context_info  Return Type       Information returned in
+                                               param_value
+
+        CL_CONTEXT_      cl_context_       If a CL_CONTEXT_PRIORITY_HINT_QCOM
+            PROPERTIES       properties[]  property was given at context
+                                           creation, this property will be
+                                           returned.
+
+Sample Code
+
+    cl_context_properties properties[] = {CL_CONTEXT_PERF_HINT_QCOM,
+        CL_PERF_HINT_LOW_QCOM, 0};
+    clCreateContext(properties, 1, &device_id, NULL, NULL, NULL);
+
+Revision History
+
+    Revision 1, 2014/10/21: Initial version.
+    Revision 2, 2017/06/16: Clean up. No functional changes.
+    Revision 3, 2017/11/08: Now a public extension.
+    Revision 4, 2017/11/13: Clean up. No functional changes.
+    Revision 5, 2018/01/19: Formatting and misc changes. No functional changes.
+

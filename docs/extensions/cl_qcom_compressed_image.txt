@@ -1,0 +1,226 @@
+Name Strings
+
+    cl_qcom_compressed_image
+
+Contributors
+
+    Balaji Calidas, Qualcomm Technologies, Inc.
+    Roto Le, Qualcomm Technologies, Inc.
+    Sreelakshmi Haridas Maruthur, Qualcomm Innovation Center, Inc.
+    Chris Grimm, Qualcomm Technologies, Inc.
+
+Contact
+
+    bcalidas at qti dot qualcomm dot com
+
+Version
+
+    Version 3, 2018/01/19
+
+Status
+
+    Shipping
+
+Extension Type
+
+    OpenCL device extension
+
+Dependencies
+
+    OpenCL 2.0 or later is required.
+
+    cl_qcom_android_native_buffer_host_ptr or cl_qcom_ion_host_ptr is required.
+
+    This extension is written against the OpenCL 2.0 Specification.
+
+Overview
+
+    This extension enables an application to read from and write to
+    OpenCL image objects holding Qualcomm compressed image data.
+
+    Compressed images are enabled on specific Qualcomm GPUs.
+    The main advantage of this feature is to reduce the overhead of reading and
+    writing images.
+
+    An application can use this extension to query supported compressed image
+    formats. It can then create an image of a supported compressed format from
+    an ION or an Android Native Buffer (ANB) allocation. Only reads and writes
+    of this image from this inside a CL kernel are defined. The results of any
+    host access are undefined.
+
+Header File
+
+    cl_ext_qcom.h
+
+New Procedures and Functions
+
+    None
+
+New Tokens
+
+    Added to the list of supported cl_mem_flags by clCreateImage in
+    Table 5.3 of the OpenCL 2.0 Specification.
+
+        CL_MEM_COMPRESSED_IMAGE_QCOM
+
+Additions to Chapter 5.3.1 of the OpenCL 2.0 Specification
+(Creating Image Objects)
+
+(Append to the section introduced by cl_qcom_ion_host_ptr extension)
+
+    Compressed images can be created from ION buffers in much the same way as
+    uncompressed images. <host_ptr>->allocation_type should be set to
+    CL_MEM_ION_HOST_PTR_QCOM. The application is responsible for the layout of
+    compressed image data held in an ION allocation, which must follow the
+    structure defined by Qualcomm compression standard. Any deviation from the
+    standard will lead to undefined results.
+
+    While creating compressed images, when CL_MEM_EXT_HOST_PTR_QCOM is enabled
+    in the <flags> argument, the image_row_pitch and image_slice_pitch fields of
+    cl_image_desc must be set to 0.
+
+Additions to Chapter 5.3.2 of the OpenCL 2.0 Specification
+(Querying List of Supported Image Formats)
+
+    When CL_MEM_COMPRESSED_IMAGE_QCOM is enabled in the <flags> argument, the
+    implementation will return a list of supported compressed image formats.
+    CL_MEM_READ_ONLY, CL_MEM_WRITE_ONLY, CL_MEM_READ_WRITE and
+    CL_MEM_KERNEL_READ_AND_WRITE flags retain the same meaning as for
+    uncompressed formats.
+
+Additions to Chapter 6.13.14.2 of the OpenCL-C 2.0 Specification
+(Built-in Image Read Functions)
+
+    The sampler used for reading compressed images takes the following values:
+    CLK_FILTER_NEAREST and CLK_FILTER_LINEAR for the sampler's filter mode.
+    CLK_ADDRESS_NONE, CLK_ADDRESS_CLAMP and CLK_ADDRESS_CLAMP_TO_EDGE for the
+    sampler's addressing mode
+
+Android Native Buffer Option
+
+    On Android platforms it is possible to create a compressed image from
+    ANativeWindowBuffer (ANB) aka graphics buffer. The application is
+    responsible for creating an ANB buffer of appropriate format and size which
+    can be used to store the compressed image data.
+
+Additions to Chapter 5.3.1 of the OpenCL 2.0 Specification
+(Creating Image Objects)
+
+(Append to the section introduced by cl_qcom_android_native_buffer_host_ptr
+extension)
+
+    Compressed images can be created from ANB buffers in much the same way as
+    uncompressed images. <host_ptr>->allocation_type should be set to
+    CL_MEM_ANDROID_NATIVE_BUFFER_HOST_PTR_QCOM. The application is responsible
+    for the layout of compressed image data held in an ANB allocation, which
+    must follow the structure defined by Qualcomm compression standard. Any
+    deviation from the standard will lead to undefined results.
+
+    While creating compressed images, when CL_MEM_EXT_HOST_PTR_QCOM is enabled
+    in the <flags> argument, the image_row_pitch and image_slice_pitch fields of
+    cl_image_desc must be set to 0.
+
+Sample Code
+
+    1) Querying supported formats for read_only compressed images
+
+        #define MAX_NUM_FORMATS 128
+
+        cl_image_format format_list[ MAX_NUM_FORMATS] = {0};
+        cl_int          num_format_list_entries       = MAX_NUM_FORMATS;
+        cl_int          num_reported_image_formats    = 0;
+        cl_int          errcode                       = 0;
+
+        // Query the supported formats for COMPRESSED_IMAGE_QCOMM
+        errcode = clGetSupportedImageFormats(
+            context,
+            CL_MEM_READ_ONLY | CL_MEM_COMPRESSED_IMAGE_QCOM,
+            CL_MEM_OBJECT_IMAGE2D,
+            num_format_list_entries,
+            format_list,
+            &num_reported_image_formats);
+
+    2) Creating an ION buffer for holding compressed image data.
+ 
+        cl_mem_ion_host_ptr compressed_ionmem = {0};
+
+        // Initialize ION buffer attributes
+        compressed_ionmem.ext_host_ptr.allocation_type =
+            CL_MEM_ION_HOST_PTR_QCOM;
+        compressed_ionmem.ext_host_ptr.host_cache_policy =
+            CL_MEM_HOST_UNCACHED_QCOM;
+        compressed_ionmem.ion_filedesc =
+            ion_info_fd.file_descriptor; // file descriptor for ION
+        compressed_ionmem.ion_hostptr =
+            ion_info.host_virtual_address; // hostptr returned by ION
+
+    3) Using cl_qcom_ion_host_ptr holding compressed image data to create a
+       compressed RGBA image object.
+
+        cl_image_format image_format = {0};
+        cl_image_desc   image_desc   = {0};
+        cl_int          errcode      = 0;
+
+        // Set image format
+        image_format->image_channel_order     = CL_QCOM_COMPRESSED_RGBA;
+        image_format->image_channel_data_type = CL_UNORM_INT8;
+
+        // Set image parameters
+        image_desc->image_width       = 128;
+        image_desc->image_height      = 256;
+        image_desc->image_row_pitch   = 0; // must be 0 for compressed images
+        image_desc->image_slice_pitch = 0; // must be 0 for compressed images
+
+        // Create a compressed image
+        compressed_rbga_image = clCreateImage(
+            context,
+            CL_MEM_EXT_HOST_PTR_QCOM | CL_MEM_READ_ONLY,
+            image_format,
+            image_desc,
+            (void*)compressed_ionmem,
+            &errcode);
+
+    4) Creating an ANB buffer for holding compressed data
+
+        cl_mem_android_native_buffer_host_ptr  compressed_ANBmem = {0};
+        GraphicBuffer *gb; // previously created
+
+        compressed_ANBmem.ext_host_ptr.allocation_type =
+            CL_MEM_ANDROID_NATIVE_BUFFER_HOST_PTR_QCOM;
+        compressed_ANBmem.ext_host_ptr.host_cache_policy =
+            CL_MEM_HOST_WRITEBACK_QCOM;
+        // the hostptr to a native buffer and gb is an Android GraphicBuffer
+        compressed_ANBmem.anb_ptr = gb->getNativeBuffer();
+
+    5) Using cl_qcom_android_native_buffer_host_ptr holding compressed image
+       data to create a compressed RGBA image object.
+
+        cl_image_format image_format = {0};
+        cl_image_desc   image_desc   = {0};
+        cl_int          errcode      = 0;
+
+        // Set image format
+        image_format->image_channel_order     = CL_QCOM_COMPRESSED_RGBA;
+        image_format->image_channel_data_type = CL_UNORM_INT8;
+
+        // Set image parameters
+        image_desc->image_width       = 128;
+        image_desc->image_height      = 256;
+        image_desc->image_row_pitch   = 0; // always 0 for compressed images
+        image_desc->image_slice_pitch = 0; // always 0 for compressed images
+
+        // Create a compressed  image
+        compressed_rbga_image = clCreateImage(
+            context,
+            CL_MEM_EXT_HOST_PTR_QCOM | CL_MEM_READ_ONLY,
+            image_format,
+            image_desc,
+            (void*)compressed_ANBmem,
+            &errcode);
+
+Revision History
+
+    Revision 1, 2016/06/02: Initial version.
+    Revision 2, 2017/06/16: Clean up. No functional changes.
+    Revision 3, 2018/01/19: Formatting and misc changes. No functional changes.
+

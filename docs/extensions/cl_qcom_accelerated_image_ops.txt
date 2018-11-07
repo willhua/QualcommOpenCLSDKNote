@@ -1,0 +1,805 @@
+Name Strings
+
+    cl_qcom_accelerated_image_ops
+
+Contributors
+
+    Roto Le, Qualcomm Technologies, Inc.
+    Balaji Calidas, Qualcomm Technologies, Inc.
+    Jay Yun, Qualcomm Technologies, Inc.
+    Vijay Ganugapati, Qualcomm Technologies, Inc.
+    Peng Zhou, Qualcomm Technologies, Inc.
+
+Contact
+
+    bcalidas at qti dot qualcomm dot com
+
+Version
+
+    Version 8, 2018/01/19
+
+Status
+
+    Shipping
+
+Extension Type
+
+    OpenCL device extension
+
+Dependencies
+
+    OpenCL 2.0 or later is required. cl_qcom_extract_image_plane is required.
+
+    This extension is written against the OpenCL 2.0 Specification.
+
+Overview
+
+    This extension introduces a new set of OpenCL-C built-in functions for
+    imaging, as well as procedures and data structures for creating image and
+    data objects required by the new built-ins. It allows the application to
+    perform a set of new imaging operations including convolution filtering, box
+    filtering and block matching using native hardware capabilities. The new
+    built-in functions can offer potential performance gains as well as ease of
+    development. They are therefore called accelerated image operations. These
+    operations cannot be directly applied to multi-plane planar images. Instead,
+    the operation must be applied to a single-plane derivative of the planar
+    image. Single-plane derivative images can be created by using the
+    cl_qcom_extract_image_plane extension.
+
+Header File
+
+    cl_ext_qcom.h
+
+New Procedures and Functions
+
+    New OpenCL-C Built-in for Convolution Filter Operation:
+
+    Convolution filtering operation multiplies a matrix of image sample values
+    to a matrix of filter weights and sum up the results to produce the output
+    value.
+
+        float4 qcom_convolve_imagef(image2d_t           image,
+                                    sampler_t           sampler,
+                                    float2              coord,
+                                    qcom_weight_image_t weight_image);
+
+    New OpenCL-C Built-in for Box Filter Operation:
+
+    Box filter operation is a linear operation taking average of pixels within a
+    spatial region on the source image covered by the box filter.
+
+        float4 qcom_box_filter_imagef(image2d_t             image,
+                                      sampler_t             sampler,
+                                      float2                coord,
+                                      const qcom_box_size_t box_size);
+
+    New OpenCL-C Built-in for Block Matching Operation:
+
+    Block matching operation measures the correlation of a block within a
+    target image to a specified block within a reference image. There are two
+    error metrics used to measure the correlation of two image blocks: Sum of
+    Absolute Differences (SAD) and Sum of Square Differences (SSD).
+
+        float4 qcom_block_match_sadf(image2d_t target_image,
+                                     sampler_t sampler,
+                                     float2    coord,
+                                     uint2     region,
+                                     image2d_t reference_image,
+                                     uint2     reference_coord);
+
+        float4 qcom_block_match_ssdf(image2d_t target_image,
+                                     sampler_t sampler,
+                                     float2    coord,
+                                     uint2     region,
+                                     image2d_t reference_image,
+                                     uint2     reference_coord);
+
+New Tokens
+
+    CL_MEM_OBJECT_WEIGHT_IMAGE_QCOM
+    CL_DEVICE_HOF_MAX_NUM_PHASES_QCOM
+    CL_DEVICE_HOF_MAX_FILTER_SIZE_X_QCOM
+    CL_DEVICE_HOF_MAX_FILTER_SIZE_Y_QCOM
+    CL_DEVICE_BLOCK_MATCHING_MAX_REGION_SIZE_X_QCOM
+    CL_DEVICE_BLOCK_MATCHING_MAX_REGION_SIZE_Y_QCOM
+
+New Built-in Data Types
+
+    qcom_weight_image_t
+    qcom_box_size_t
+
+New Data Structures
+
+    cl_weight_desc_qcom
+    cl_weight_image_desc_qcom
+    cl_box_size_qcom
+
+Additions to Chapter 6.13. of the OpenCL-C 2.0 Specification
+(Built-in Accelerated Image Functions)
+
+    Convolution Filter Function
+    ---------------------------
+
+    Convolution filter operation multiplies a matrix of image sample values to a
+    matrix of filter weights and sum up the results to produce the output value.
+
+    Two types of convolution filters can be used with the new built-in
+    convolution operation.
+
+    * 2D convolution filter: the filter is a 2D matrix specified by a set of
+      (filter_size_x * filter_size_y) weight elements; and the filter's center
+      point, whose coordinates are based on the origin at the top left corner of
+      the filter's spatial region.
+
+      The following figure illustrates a 2D convolution filter having size of
+      4x3 and its center point is located at coordinates (cx = 1, cy = 1).
+
+                 2D Convolution Filter
+          ***********************************
+          * (0,0) * (1,0)   * (2,0) * (3,0) *
+          ***********************************
+          * (0,1) * (cx,cy) * (2,1) * (3,1) *
+          ***********************************
+          * (0,2) * (1,2)   * (2,2) * (3,2) *
+          ***********************************
+
+    * Separable convolution filter: the filter is a 2D filter that can be
+      specified by two 1D filters in x and y directions such that their product
+      yields the 2D filter. The following example shows a 2D filter and its
+      associated separable one.
+
+          Separable 2D filter         Associated 1D horizontal and 1D vertical
+                                      filters
+
+              *********               *********                   *****
+              * 3 * 6 *               * 1 * 2 *                   * 3 *
+              *********               *********                   *****
+              * 4 * 8 *                                           * 4 *
+              *********                                           *****
+
+      Convolution using a separable filter can be performed by performing a 1D
+      convolution of each row using the 1D horizontal filter, then followed by
+      convolving each column of the result using the 1D vertical filter.
+      The result is mathematically the same as applying the 2D filter for each
+      pixel directly. For use-cases that have a large number of phases,
+      separable filters can offer a performance advantage.
+
+    Built-in Function for Convolution Filter Operation:
+
+        float4 qcom_convolve_imagef(image2d_t           image,
+                                    sampler_t           sampler,
+                                    float2              coord,
+                                    qcom_weight_image_t weight_image);
+
+    * Argument <image> specifies the source image, on which the convolution
+      operation is applied.
+
+    * Argument <sampler> specifies the sampling mode for reading in the source
+      image elements.
+
+    * Argument <coord> specifies the coordinates of the source image element,
+      which is the center point of the image region on the source <image> where
+      the convolution is applied. Only floating point coordinates can be used
+      otherwise the kernel will fail to compile.
+
+    * Argument <weight_image> specifies the image object holding the convolution
+      filter. The convolution filter weights must be passed to OpenCL-C kernels
+      in the form of the new weight_image_t data type. A weight image can be
+      created using clCreatImage following the procedures presented below.
+
+    The following example shows a 2D 4x3 convolution operation on a 7x4 source
+    <image> at <coord> = (4, 2).
+
+                            Source <image>
+        *********************************************************
+        * (0,0) * (1,0) * (2,0) * (3,0) * (4,0) * (5,0) * (6,0) *
+        *********************************************************
+        * (0,1) * (1,1) * (2,1) * (3,1) * (4,1) * (5,1) * (6,1) *
+        *********************************************************
+        * (0,2) * (1,2) * (2,2) * (3,2) * (4,2) * (5,2) * (6,2) *
+        *********************************************************
+        * (0,3) * (1,3) * (2,3) * (3,3) * (4,3) * (5,3) * (6,3) *
+        *********************************************************
+
+               2D Convolution Filter
+        ***********************************
+        * (0,0) * (1,0)   * (2,0) * (3,0) *
+        ***********************************
+        * (0,1) * (cx,cy) * (2,1) * (3,1) *
+        ***********************************
+        * (0,2) * (1,2)   * (2,2) * (3,2) *
+        ***********************************
+
+    Given the center point of the 2D filter is at coordinates (cx = 1, cy = 1),
+    the following source image region is selected to apply the convolution.
+
+        Region of source image being convolved
+        *********************************
+        * (3,1) * (4,1) * (5,1) * (6,1) *
+        *********************************
+        * (3,2) * (4,2) * (5,2) * (6,2) *
+        *********************************
+        * (3,3) * (4,3) * (5,3) * (6,3) *
+        *********************************
+
+    Restrictions for Built-in Convolution Filter Function:
+
+    * The inputs <image>, <weight_image> and <sampler> must be uniform for all
+      work-items within a work-group executing the qcom_convolve_imagef
+      function.
+
+    * The number of filter phases must not exceed the platform's maximum number
+      of phases, which can be queried using clGetDeviceInfo with the
+      <param_name> set to CL_DEVICE_HOF_MAX_NUM_PHASES_QCOM.
+
+    * The filter_size_x/y must not exceed the platform's maximum filter sizes,
+      which can be queried using clGetDeviceInfo with the <param_name> set to
+      CL_DEVICE_HOF_MAX_FILTER_SIZE_X_QCOM and
+      CL_DEVICE_HOF_MAX_FILTER_SIZE_Y_QCOM.
+
+    * The built-in convolution filter does not work on multi-plane planar
+      images.
+
+Additions to Chapter 5.3 of the OpenCL 2.0 Specification
+(Procedure for Creating Weight Image)
+
+    New Data Structures for Describing Weight Image:
+
+        typedef struct _cl_weight_desc_qcom
+        {
+            // Coordinate of the "center" point of the weight image
+            // based on the weight image's top-left corner as the origin.
+            size_t       center_coord_x;
+            size_t       center_coord_y;
+
+            cl_bitfield  flags;
+
+        } cl_weight_desc_qcom;
+
+        typedef struct _cl_weight_image_desc_qcom
+        {
+            cl_image_desc           image_desc;
+            cl_weight_desc_qcom     weight_desc;
+        } cl_weight_image_desc_qcom;
+
+    The cl_weight_image_desc_qcom descriptor is used for specifying convolution
+    filter to create its representative weight image as following:
+
+        weight_img_desc.image_desc.image_type = CL_MEM_OBJECT_WEIGHT_IMAGE_QCOM;
+        weight_img_desc.image_desc.image_width = filter_size_x;
+        weight_img_desc.image_desc.image_height = filter_size_y;
+        weight_img_desc.image_desc.image_array_size = num_phases;
+        weight_img_desc.image_desc.image_row_pitch = 0; // must set to zero
+        weight_img_desc.image_desc.image_slice_pitch = 0; // must set to zero
+
+        weight_img_desc.weight_desc.center_coord_x = center_coord_x;
+        weight_img_desc.weight_desc.center_coord_y = center_coord_y;
+        // specify separable filter. Default (flags=0) is 2D convolution filter
+        weight_img_desc.weight_desc.flags = CL_WEIGHT_IMAGE_SEPARABLE_QCOM;
+
+    The cl_weight_image_desc_qcom* pointer is then used to overload
+    cl_image_desc* pointer in clCreateImage to create the weight image:
+
+        cl_mem weight_image = clCreateImage(context,
+                                            flags,
+                                            image_format,
+                                            (cl_image_desc*)&weight_img_desc,
+                                            (void*)weight_host_buff,
+                                            &errcode_ret);
+
+    * Argument <flags> only accepts CL_MEM_READ_ONLY and CL_MEM_COPY_HOST_PTR
+      flags. Weight images only support read access.
+
+    * Argument <image_format> only accepts valid image formats supported for
+      weight images, which can be query using clGetSupportedImageFormats
+      with the image type set to CL_MEM_OBJECT_WEIGHT_IMAGE_QCOM.
+
+    * Argument <weight_host_buff> pointer points to a memory allocation holding
+      weight elements. The number of phases set to the
+      image_desc.image_array_size. The organization for the elements in the
+      <weight_host_buff> memory region depends on the the filter type, 2D
+      non-separable or separable.
+
+    * For 2D convolution filter: num_phases = num_phase_x * num_phase_y. It also
+      requires that num_phase_x = num_phase_y, and both values must be
+      power-of-two. The weight values of each filter phase are organized into a
+      2D slice size of (filter_size_x * filter_size_y).
+
+    * For separable convolution filter: num_phases = num_phase_x = num_phase_y,
+      and must be power-of-two. The weights of 1D horizontal and 1D vertical
+      filters of each filter phase are organized into a 2D slice having
+      slice_height = 2 and slice_width = max(filter_size_x, filter_size_y).
+      The first row of each slice holds the horizontal filter and the second
+      row holds the vertical filter.
+
+    * When num_phases is greater than 1, the weight slices must be organized in
+      a 2D array, which has number of slices equal to num_phases. During
+      built-in execution, the phase number is calculated based on the fraction
+      of subpixel offset of the coordinate of the filter's center point from
+      the pixel center.
+
+    A weight image object can be written from host memory using
+    clEnqueueWriteImage. Similarly, the weight image data can be read from a
+    weight image object using clEnqueueReadImag. In both cases, the data must be
+    organized in host memory buffer as per the layout described above. The
+    region specified in clEnqueueReadImage and clEnqueueWriteImage must cover
+    the entire weight image otherwise an error will be returned.
+
+Additions to Chapter 6.13. of the OpenCL-C 2.0 Specification
+(Built-in Accelerated Image Functions)
+
+    Box Filter Function
+    -------------------
+
+    Box filter operation is a linear operation taking average of pixels within a
+    spatial region on the source image covered by the box filter. A box filter
+    is specified by (box_filter_width, box_filter_height); and the coordinates
+    where the center of the box filter is positioned.
+
+    Mathematically the linear average of pixels produced by a box filter
+    centered at coordinates (x,y) is calculated as follows:
+
+        box_filter(x, y) = sum(weight(i, j) * pix(i, j)) /
+            (box_width*box_height)
+
+    Where (i, j) are coordinates of the pixels covered by the box filter. It is
+    important to note that some pixels may be only covered partially by the box.
+    Hence weight(i, j) is adjusted based on the coverage of pixel(i, j) by the
+    box.
+
+    The following example shows a 2x2 box filter applied on a 4x4 image. The box
+    filter is centered at coordinates (1, 1).
+
+            2x2 Box Filter
+        + + + + + + + + + + +
+        +         +         +
+        +         +         +
+        +         +         +
+        + + + + + + + + + + +
+        +         +         +
+        +         +         +
+        +         +         +
+        + + + + + + + + + + +
+
+                     4x4 Source Image
+        - - - - - - - - - - - - - - - - - - - - -
+        -         -         -         -         -
+        -  (0, 0) -  (1, 0) -  (2, 0) -  (3, 0) -
+        -         -         -         -         -
+        - - - - - - - - - - - - - - - - - - - - -
+        -         -         -         -         -
+        -  (0, 1) -  (1, 1) -  (2, 1) -  (3, 1) -
+        -         -         -         -         -
+        - - - - - - - - - - - - - - - - - - - - -
+        -         -         -         -         -
+        -  (0, 2) -  (1, 2) -  (2, 2) -  (3, 2) -
+        -         -         -         -         -
+        - - - - - - - - - - - - - - - - - - - - -
+        -         -         -         -         -
+        -  (0, 3) -  (1, 3) -  (2, 3) -  (3, 3) -
+        -         -         -         -         -
+        - - - - - - - - - - - - - - - - - - - - -
+
+           Apply the box filter at coord(1, 1)
+        - - - - - - - - - - - - - - - - - - - - -
+        -         -         -         -         -
+        -    + + + + + + + + + + +    -         -
+        -    +    -    +    -    +    -         -
+        - - -+- - - - -+- - - - -+- - - - - - - -
+        -    +    -    +    -    +    -         -
+        -    + + + + (1,1) + + + +    -         -
+        -    +    -    +    -    +    -         -
+        - - -+ -  - - -+- - - - -+- - - - - - - -
+        -    +    -    +    -    +    -         -
+        -    + + + + + + + + + + +    -         -
+        -         -         -         -         -
+        - - - - - - - - - - - - - - - - - - - - -
+        -         -         -         -         -
+        -         -         -         -         -
+        -         -         -         -         -
+        - - - - - - - - - - - - - - - - - - - - -
+
+    The weights are adjusted based as following:
+
+        W(0, 0) = 0.25  W(1, 0) = 0.5  W(2, 0) = 0.25
+        W(0, 1) = 0.5   W(1, 1) = 1    W(2, 1) = 0.5
+        W(0, 2) = 0.25  W(1, 2) = 0.5  W(2, 1) = 0.25
+
+    Built-in Function for Box Filter Operation:
+
+        float4 qcom_box_filter_imagef(  image2d_t             image,
+                                        sampler_t             sampler,
+                                        float2                coord,
+                                        const qcom_box_size_t box_size );
+
+    * Argument <image> specifies a valid readable image, on which the box
+      filter is applied.
+
+    * Argument <sampler> specifies the sampling mode for reading <image>.
+
+    * Argument <coord> specifies the coordinates of the point where the center
+      of the box filter is positioned on the source image plane. Only floating
+      point coordinates can be used otherwise the kernel will fail to compile.
+
+    * Argument <box_size> specifies the box_filter_width and box_filter_height.
+      The box_size must be passed in as an OpenCL-C kernel argument and it must
+      be fixed during the runtime of the kernel.
+
+    Restrictions for Built-in Box Filter Function:
+
+    * The inputs <image>, <box_size> and <sampler> must be uniform for all
+      work-items within a work-group executing qcom_box_filter_imagef function.
+
+    * The box_size.x/.y must not exceed the platform's maximum box filter sizes,
+      which can be queried using clGetDeviceInfo with the <param_name> set to
+      CL_DEVICE_HOF_MAX_FILTER_SIZE_X_QCOM and
+      CL_DEVICE_HOF_MAX_FILTER_SIZE_Y_QCOM
+
+    * The <box_size> must be passed in as an OpenCL-C kernel argument and it
+      must be fixed during the runtime of the kernel.
+
+    * The built-in box filter does not work on multi-plane planar images.
+
+    New Data Structure for Declaring Box Filter Sizes on Host Side:
+
+        typedef struct _cl_box_size_qcom
+        {
+            // Width of box filter on X direction.
+            float box_filter_width;
+
+            // Height of box filter on Y direction.
+            float box_filter_height;
+        } cl_box_size_qcom;
+
+
+    Block Matching Function
+    -----------------------
+
+    Block matching operation measures the correlation (or similarity) of a block
+    within a target image to a a reference block within a reference image. There
+    are two error metrics used to measure the correlation of two image blocks:
+    Sum of Absolute Differences(SAD) and Sum of Square Differences(SSD).
+
+    Mathematically the correlation metrics are calculated as following:
+
+        SAD_Targer2Ref = 0;
+        SSD_Targer2Ref = 0;
+        pixel_diff     = 0;
+        for (i=0; i < block_height; i++)
+        {
+            for (j=0; j < block_width; j++)
+            {
+                pixel_diff = target_pixel - ref_pixel;
+                SAD       += fabs(pixel_diff);
+                SSD       += pixel_diff * pixel_diff;
+            }
+        }
+
+    Suppose that there are two candidate blocks A and B, and we want to know
+    which one matches block R the best. By computing SAD between A and R, and
+    between B and R, we can select the block that leads to the least error, or
+    the least SAD value. This can be generalized for searching the least SAD
+    value for reference block R cross a set of N target blocks.
+
+    Built-in Function For Calculating SAD:
+
+        float4 qcom_block_match_sadf(image2d_t target_image,
+                                     sampler_t sampler,
+                                     float2    target_coord,
+                                     uint2     region,
+                                     image2d_t reference_image,
+                                     uint2     reference_coord);
+
+    Built-in Function For Calculating SSD:
+
+        float4 qcom_block_match_ssdf(image2d_t target_image,
+                                     sampler_t sampler,
+                                     float2    target_coord,
+                                     uint2     region,
+                                     image2d_t reference_image,
+                                     uint2     reference_coord);
+
+    * Argument <target_image> specifies a valid readable target image, on which
+      the target block is selected based on <target_coord> and <region> inputs.
+
+    * Argument <sampler> specifies the sampling mode for reading image elements
+      from both <target_image> and <reference_image>.
+
+    * Argument <target_coord> specifies the coordinates of the base point of the
+      target image block, which is the top left corner of the block. Only
+      floating point coordinates can be used otherwise the kernel will fail to
+      compile.
+
+    * Argument <region> specifies the size of the target and reference blocks on
+      the respective images. Only integer values can be used for the argument
+      otherwise the kernel will fail to compile.
+
+    * Argument <reference_image> specifies a valid readable reference image, on
+      which the reference block is selected based on <reference_coord> and
+      <region>.
+
+    * Argument <reference_coord> specifies the coordinates of the base point of
+      the reference image block, which is the top left corner of the block. Only
+      integer coordinates can be used otherwise the kernel will fail to compile.
+
+    Restrictions for Built-in SAD and SSD Functions:
+
+    * The inputs <target_image>, <reference_image>, <region> and sampler must be
+      uniform across all work-items within a work-group executing the built-in.
+
+    * The region.x/.y must not exceed the platform's maximum region sizes, which
+      can be queried using clGetDeviceInfo with the <param_name> set to
+      CL_DEVICE_BLOCK_MATCHING_MAX_REGION_SIZE_X_QCOM and
+      CL_DEVICE_BLOCK_MATCHING_MAX_REGION_SIZE_X_QCOM
+
+    * The size of the reference and target blocks specified in <region> argument
+      must be uniform for all work items within a work group.
+
+    * The block_match built-ins do not work on multi-plane planar images.
+
+    The following example shows a block matching operation on a <region> =
+    (3, 3) between two blocks locating at the following coordinates:
+
+    * <target_coord> = (1.0f, 0.0f) on a 5x4 <target_image>
+    * <reference_coord> = (4, 1) on a 8x4 <reference_image>
+
+                    <target_image>
+        *****************************************
+        * (0,0) * (1,0) * (2,0) * (3,0) * (4,0) *
+        *****************************************
+        * (0,1) * (1,1) * (2,1) * (3,1) * (4,1) *
+        *****************************************
+        * (0,2) * (1,2) * (2,2) * (3,2) * (4,2) *
+        *****************************************
+        * (0,3) * (1,3) * (2,3) * (3,3) * (4,3) *
+        *****************************************
+
+                                <reference_image>
+        *****************************************************************
+        * (0,0) * (1,0) * (2,0) * (3,0) * (4,0) * (5,0) * (6,0) * (7,0) *
+        *****************************************************************
+        * (0,1) * (1,1) * (2,1) * (3,1) * (4,1) * (5,1) * (6,1) * (7,0) *
+        *****************************************************************
+        * (0,2) * (1,2) * (2,2) * (3,2) * (4,2) * (5,2) * (6,2) * (7,0) *
+        *****************************************************************
+        * (0,3) * (1,3) * (2,3) * (3,3) * (4,3) * (5,3) * (6,3) * (7,0) *
+        *****************************************************************
+
+    Given the input parameters, the following blocks are selected from the
+    respective images to calculate the SAD/SSD metrics:
+
+        Reference block selected from <reference_image>
+            *************************
+            * (4,1) * (5,1) * (6,1) *
+            *************************
+            * (4,2) * (5,2) * (6,2) *
+            *************************
+            * (4,3) * (5,3) * (6,3) *
+            *************************
+
+        Target block selected from <target_image>
+            *************************
+            * (1,0) * (2,0) * (3,0) *
+            *************************
+            * (1,1) * (2,1) * (3,1) *
+            *************************
+            * (1,2) * (2,2) * (3,2) *
+            *************************
+
+Sample Code
+
+    1) Procedures for calling the built-in convolution filter operation:
+
+        //------------------------------------------------------------
+        // Create weight images holding filter weights on host side
+        //------------------------------------------------------------
+        // Set weight image format
+        cl_image_format     weight_image_format;
+        weight_image_format.image_channel_order        = CL_R;
+        weight_image_format.image_channel_data_type    = CL_HALF_FLOAT;
+
+        // 3x3 2D Sobel filter for edge detection
+        // The kernel weights of are organized into a 3x3 2D slice
+        cl_float sobel_filter_weights[] ={-1, 0, 1,
+                                          -2, 0, 2,
+                                          -1, 0, 1};
+        cl_half sobel_filter_half_weights[3,3];
+
+        convert_float_to_half(sobel_filter_weights, sobel_filter_half_weights);
+
+        // Separable Sobel filter associated with the 3x3 2D Sobel filter
+        // The kernel weights are organized into a 3x2 2D slice.
+        // The first row holds the 1D horizontal kernel
+        // The second row holds the 1D vertical kernel.
+        cl_float sobel_separable_filter_weights[] ={-1, 0, 1,   // horiz kernel
+                                                     1, 2, 1};  // vert kernel
+        cl_half sobel_separable_filter_half_weights[2,3];
+
+        convert_float_to_half(separable_sobel_filter_weights,
+            separable_sobel_filter_half_weights);
+
+        // Set weight image descriptor for the 2D sobel filter
+        cl_weight_image_desc_qcom   sobel_weight_img_desc;
+        memset(&sobel_weight_img_desc, 0x0, sizeof(cl_weight_image_desc_qcom));
+
+        sobel_weight_img_desc.image_desc.image_type =
+            CL_MEM_OBJECT_WEIGHT_IMAGE_QCOM;
+        sobel_weight_img_desc.image_desc.image_width        = 3;
+        sobel_weight_img_desc.image_desc.image_height       = 3;
+        sobel_weight_img_desc.image_desc.image_array_size   = 1;
+        sobel_weight_img_desc.image_desc.image_row_pitch    = 0;
+        sobel_weight_img_desc.image_desc.image_slice_pitch  = 0;
+
+        sobel_weight_img_desc.weight_desc.center_coord_x    = 1;
+        sobel_weight_img_desc.weight_desc.center_coord_y    = 1;
+        // Pick 2D Convolution Filter which is the default
+        sobel_weight_img_desc.weight_desc.flags             = 0;
+
+        // Call clCreateImage to create sobel_weight_image
+
+        cl_mem_flags flags = CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR;
+
+        cl_mem sobel_weight_image = clCreateImage(context, flags,
+            weight_image_format, (cl_image_desc*)&sobel_weight_img_desc,
+            (void*)sobel_filter_half_weights, &errcode);
+
+        if(errcode != CL_SUCCESS)
+        {
+            return false;
+        }
+
+        // Set weight image descriptor for the separable sobel filter
+        cl_weight_image_desc_qcom   sep_sobel_weight_img_desc;
+        memset(&sep_sobel_weight_img_desc, 0x0,
+            sizeof(cl_weight_image_desc_qcom));
+
+        sep_sobel_weight_img_desc.image_desc.image_type         =
+            CL_MEM_OBJECT_WEIGHT_IMAGE_QCOM;
+        sep_sobel_weight_img_desc.image_desc.image_width        = 3;
+        sep_sobel_weight_img_desc.image_desc.image_height       = 3;
+        sep_sobel_weight_img_desc.image_desc.image_array_size   = 1;
+        sep_sobel_weight_img_desc.image_desc.image_row_pitch    = 0;
+        sep_sobel_weight_img_desc.image_desc.image_slice_pitch  = 0;
+
+        sep_sobel_weight_img_desc.weight_desc.center_coord_x    = 1;
+        sep_sobel_weight_img_desc.weight_desc.center_coord_y    = 1;
+        sep_sobel_weight_img_desc.weight_desc.flags             =
+            CL_WEIGHT_IMAGE_SEPARABLE_QCOM;
+
+        // Call clCreateImage to create sep_sobel_weight_img
+
+        cl_mem_flags flags = CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR;
+
+        cl_mem sep_sobel_weight_img = clCreateImage(context, flags,
+            weight_image_format, (cl_image_desc*)&sep_sobel_weight_img_desc,
+            (void*)separable_sobel_filter_half_weights, &errcode);
+
+        if(errcode != CL_SUCCESS)
+        {
+            return false;
+        }
+
+        // Setup the weight images as kernel arguments
+
+        errcode = clSetKernelArg (kernel, arg_index++, sizeof(cl_mem),
+            (void*)&sobel_weight_image);
+
+        if(errcode != CL_SUCCESS)
+        {
+            return false;
+        }
+
+        errcode = clSetKernelArg (kernel, arg_index++, sizeof(cl_mem),
+            (void*)&sep_sobel_weight_img);
+
+        if(errcode != CL_SUCCESS)
+        {
+            return false;
+        }
+
+        // OpenCL-C kernel box_filter for calling the qcom_convolve_imagef
+        // built-in
+        __kernel void convolution(
+            __read_only  image2d_t           src_image,
+            __read_only  qcom_weight_image_t sobel_weight_img,
+            __read_only  qcom_weight_image_t sep_sobel_weight_img,
+            __write_only image2d_t           convolved_img,
+            __write_only image2d_t           sep_convolved_img,
+                         sampler_t           sampler)
+        {
+            int     wid_x               = get_global_id(0);
+            int     wid_y               = get_global_id(1);
+            int2    int_coord           = (int2)(wid_x, wid_y);
+            float2  float_coord         = convert_float2(int_coord);
+
+            // Do convolution
+            float4 convolved_sobel_pixel = qcom_convolve_imagef(src_image,
+                sampler, float_coord, sobel_weight_img);
+
+            float4 convolved_sep_sobel_pixel = qcom_convolve_imagef(src_image,
+                sampler, float_coord, sep_sobel_weight_img);
+
+            // Write out the convolved pixels
+            write_imagef(convolved_img, int_coord, convolved_sobel_pixel);
+            write_imagef(sep_convolved_img, int_coord,
+                convolved_sep_sobel_pixel);
+        }
+
+    2) Procedures for using the built-in box filter operation:
+
+        // Set the box filter size from host side
+        cl_box_size_qcom box_filter_size    = {0};
+        box_filter_size.box_filter_width    = 2;
+        box_filter_size.box_filter_height   = 2;
+
+        // The box_filter_size must be passed to OpenCL-C kernel as a kernel
+        // argument.
+        errcode = clSetKernelArg (kernel,
+                                  box_size_arg_index,
+                                  sizeof(cl_box_size_qcom),
+                                  (void*)&box_filter_size);
+        if(errcode != CL_SUCCESS)
+        {
+            return false
+        }
+
+        // OpenCL-C kernel box_filter for calling the qcom_box_filter_imagef
+        // built-in
+        __kernel void box_filter(
+            __read_only  image2d_t       src_image,
+            __write_only image2d_t       filtered_output_image,
+                         sampler_t       sampler,
+                         // box_size must be set by host
+                         qcom_box_size_t box_size)
+        {
+            int     wid_x               = get_global_id(0);
+            int     wid_y               = get_global_id(1);
+            float2  coord               = (float2)((float)wid_x, (float)wid_y);
+            float4  box_filtered_pixel  = (float4)(0.0f, 0.0f, 0.0f, 0.0f);
+
+            // Do Box Filtering
+            float4 box_filter_pixel = qcom_box_filter_imagef(src_image, sampler,
+                coord, box_size);
+
+            // Write out the box_filter_pixel
+            write_imagef(filtered_output_image, coord, box_filter_pixel);
+        }
+
+    3) Procedures for using SAD and SSD block matching operations:
+
+        // Set parameters for region and coordinates for target and reference
+        // blocks
+        uint2       region          = (uint2)(3, 3);
+        float2      target_coord    = (float2)(1.0f, 2.0f);
+        uint2       ref_coord       = (uint2)(4, 3);
+        float4      SAD             = (float4)(0, 0, 0, 0);
+        float4      SSD             = (float4)(0, 0, 0, 0);
+
+        // SAD block matching
+        SAD = qcom_block_match_sadf(target_image,
+                                    sampler,
+                                    target_coord,
+                                    region,
+                                    ref_image,
+                                    ref_coord);
+
+        // SSD block matching
+        SSD = qcom_block_match_ssdf(target_image,
+                                    sampler,
+                                    target_coord,
+                                    region,
+                                    ref_image,
+                                    ref_coord);
+
+Revision History
+
+    Revision 1, 2017/03/20: Initial version.
+    Revision 2, 2017/06/16: Clean up. No functional changes.
+    Revision 3, 2017/07/19: Added reference to cl_qcom_extract_image_plane.
+    Revision 4, 2017/08/07: Edited references to filter types.
+    Revision 5, 2017/09/27: Add separable filter support, change contact person.
+    Revision 6, 2017/11/13: Clarify block matching examples/algorithm.
+    Revision 7, 2017/11/30: Corrected code sample showing how to create weight
+                            images.
+    Revision 8, 2018/01/19: Formatting and misc changes. No functional changes.
+

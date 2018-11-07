@@ -1,0 +1,376 @@
+Name Strings
+
+    cl_qcom_subgroup_shuffle
+
+Contributors
+
+    Ranjhith Kumar Kalisamy, Qualcomm Technologies, Inc.
+    Balaji Calidas, Qualcomm Technologies, Inc.
+    Peng Zhou, Qualcomm Technologies, Inc.
+
+Contact
+
+    bcalidas at qti dot qualcomm dot com
+
+Version
+
+    Version 6, 2018/01/19
+
+Status
+
+   Shipping
+
+Extension Type
+
+    OpenCL device extension
+
+Dependencies
+
+    OpenCL 2.0 or later is required. This extension is written against the
+    following specifications:
+
+    * OpenCL Specification (Version: 2.0, Document Revision: 29)
+    * The OpenCL C Specification (Version: 2.0, Document Revision: 33)
+    * The OpenCL Extension Specification (Version: 2.0, Document Revision: 32)
+
+Overview
+
+    Certain Qualcomm GPUs have the capability to exchange data among work-items
+    in a sub-group, without taking the round-trip route to global or local
+    memory. This extension exposes this device capability to OpenCL kernels
+    through new OpenCL C built-ins. Applications that need to exchange data
+    between work-items will gain a performance benefit from the new built-ins
+    as opposed to implementing a local memory based solution.
+
+Header File
+
+    None
+
+OpenCL C changes
+
+    New Compiler directives
+
+        #pragma OPENCL EXTENSION cl_qcom_subgroup_shuffle : <behavior>
+
+        where <behavior> can be enable or disable.
+
+        This #pragma directive controls the behavior of the
+        cl_qcom_subgroup_shuffle extension.
+
+        * If <behavior> is set to enable, the device compiler behaves as
+          specified by the cl_qcom_subgroup_shuffle extension.
+
+        * If <behavior> is set to disable, the device compiler behaves
+          (including issuing errors and warnings) as if the
+          cl_qcom_subgroup_shuffle extension is not part of the language
+          specification.
+
+    New Enums
+
+        The qcom_sub_group_shuffle_width_modes_t enum defines how the work-items
+        need to be grouped for a shuffle operation. Its values can be as
+        follows:
+
+        * CLK_SUB_GROUP_SHUFFLE_WIDTH_WAVE_SIZE_QCOM: Perform a shuffle
+          operation among all work-items in a sub-group. The maximum number of
+          work-items that can be fit into a sub-group can be obtained using the
+          CL_KERNEL_MAX_SUB_GROUP_SIZE_FOR_NDRANGE_KHR query to
+          clGetKernelSubGroupInfoKHR.
+
+        * CLK_SUB_GROUP_SHUFFLE_WIDTH_W4_QCOM: Perform a shuffle operation
+          within a group of 4 work-items in a sub-group.
+
+        * CLK_SUB_GROUP_SHUFFLE_WIDTH_W8_QCOM: Perform a shuffle operation
+          within a group of 8 work-items in a sub-group.
+
+    New Functions
+
+        <gentype> qcom_sub_group_shuffle_<op>(
+            <gentype> source_value,
+            uint offset,
+            qcom_sub_group_shuffle_width_modes_t width,
+            <gentype> default_value);
+
+        where <gentype> can be uchar, char, ushort, short, uint, int, ulong,
+        long or float. If cl_khr_fp16 is supported, <gentype> also includes
+        half.
+
+        where <op> can be up, down, rotate_up, rotate_down or xor.
+
+        Any of the input parameters can be an immediate value or a variable.
+
+Add a new Section 6.13.18, "Sub-group Shuffle Functions"
+
+    The additions described in this section are unique to Qualcomm GPUs that
+    support this feature and are not part of the standard Khronos OpenCL C
+    Specification.
+
+    The OpenCL C programming language implements the following built-in
+    functions to allow data exchange among work-items in a sub-group.
+
+    For these functions, <gentype> is can be uchar, char, ushort, short, uint,
+    int, ulong, long or float. If cl_khr_fp16 is supported, <gentype> also
+    include half.
+
+    * qcom_sub_group_shuffle_up
+
+      <gentype> qcom_sub_group_shuffle_up(
+          <gentype> source_value,
+          uint offset,
+          qcom_sub_group_shuffle_width_modes_t width,
+          <gentype> default_value)
+
+      Transfers data from a work-item in the sub-group to another work-item in
+      the same sub-group having a sub_group_local_id equal to
+      (source sub_group_local_id + offset). If the sub_group_local_id of the
+      work-item that is about to receive the data is more than the largest
+      sub_group_local_id of the work-item participating in the shuffle group,
+      the data transfer is dropped for that work-item.
+
+      source_value identifies the data that is transferred in the shuffle
+      operation.
+
+      offset identifies the difference in the values of sub_group_local_id of
+      the two work-items in the sub-group among which the data transfer is
+      requested.
+
+      width identifies the grouping of work-items in a sub-group among which the
+      shuffle operation is requested. It can refer to a group of 4 or 8
+      work-items or all work-items in a sub-group.
+
+      default_value, identifies the data that is transferred when the source
+      work-item is inactive or out of the shuffle width.
+
+      Example:
+
+      uint i = get_global_id(0);
+      buf1D[i] = qcom_sub_group_shuffle_up(buf1D[i], offset,
+          CLK_SUB_GROUP_SHUFFLE_WIDTH_W4_QCOM, buf1D[i]);
+
+      When offset = 1, buf1D[4] will be:
+      Before: {0xAA, 0xBB, 0xCC, 0xDD}
+      After:  {0xAA, 0xAA, 0xBB, 0xCC}
+
+      When offset = 3, buf1D[4] will be:
+      Before: {0xAA, 0xBB, 0xCC, 0xDD}
+      After:  {0xAA, 0xBB, 0xCC, 0xAA}
+
+    * qcom_sub_group_shuffle_down
+
+      <gentype> qcom_sub_group_shuffle_down(
+          <gentype> source_value,
+          uint offset,
+          qcom_sub_group_shuffle_width_modes_t width,
+          <gentype> default_value)
+
+      Transfers data from a work-item in the sub-group to another work-item in
+      the same sub-group having a sub_group_local_id equal to (source
+      sub_group_local_id - offset). If the sub_group_local_id of the work-item
+      that is about to receive the data is less than the smallest
+      sub_group_local_id of the work-item participating in the shuffle group,
+      the data transfer is dropped for that work-item.
+
+      source_value identifies the data that is transferred in the shuffle
+      operation.
+
+      offset identifies the difference in the values of sub_group_local_id of
+      the two work-items in the sub-group among which the data transfer is
+      requested.
+
+      width identifies the grouping of work-items in a sub-group among which the
+      shuffle operation is requested. It can refer to a group of 4 or 8
+      work-items or all work-items in a sub-group.
+
+      default_value identifies the data that is transferred when the source
+      work-item is inactive or out of the shuffle width.
+
+      Example:
+
+      uint i = get_global_id(0);
+      buf1D[i] = qcom_sub_group_shuffle_down(buf1D[i],
+          offset, CLK_SUB_GROUP_SHUFFLE_WIDTH_W4_QCOM, 0x11);
+
+      When offset = 1, buf1D[4] will be:
+      Before: {0xAA, 0xBB, 0xCC, 0xDD}
+      After:  {0xBB, 0xCC, 0xDD, 0x11}
+
+      When offset = 3, buf1D[4] will be:
+      Before: {0xAA, 0xBB, 0xCC, 0xDD}
+      After:  {0xDD, 0x11, 0x11, 0x11}
+
+    * qcom_sub_group_shuffle_rotate_up
+
+      <gentype> qcom_sub_group_shuffle_rotate_up(
+          <gentype> source_value,
+          uint offset,
+          qcom_sub_group_shuffle_width_modes_t width,
+          <gentype> default_value)
+
+      Transfers data from a work-item in the sub-group to another work-item in
+      the same sub-group having a sub_group_local_id equal to (source
+      sub_group_local_id + offset). If the sub_group_local_id of the work-item
+      that is about to receive the data is more than the largest
+      sub_group_local_id of the work-item participating in the shuffle group,
+      the sub_group_local_id is wrapped back into the sub-group of work-items
+      participating in the shuffle operation.
+
+      source_value identifies the data that is transferred in the shuffle
+      operation.
+
+      offset identifies the difference in the values of sub_group_local_id of
+      the two work-items in the sub-group among which the data transfer is
+      requested.
+
+      width identifies the grouping of work-items in a sub-group among which the
+      shuffle operation is requested. It can refer to a group of 4 or 8
+      work-items or all work-items in a sub-group.
+
+      default_value identifies the data that is transferred when the source
+      work-item is inactive or out of the shuffle width.
+
+      Example:
+
+      uint i = get_global_id(0);
+      buf1D[i] = qcom_sub_group_shuffle_rotate_up(buf1D[i], offset,
+          CLK_SUB_GROUP_SHUFFLE_WIDTH_W4_QCOM, buf1D[i]);
+
+      When offset = 1, buf1D[4] will be:
+      Before: {0xAA, 0xBB, 0xCC, 0xDD}
+      After:  {0xDD, 0xAA, 0xBB, 0xCC}
+
+      When offset = 3, buf1D[4] will be:
+      Before: {0xAA, 0xBB, 0xCC, 0xDD}
+      After:  {0xBB, 0xCC, 0xDD, 0xAA}
+
+    * qcom_sub_group_shuffle_rotate_down
+
+      <gentype> qcom_sub_group_shuffle_rotate_down(
+          <gentype> source_value,
+          uint offset,
+          qcom_sub_group_shuffle_width_modes_t width,  
+          <gentype> default_value)
+
+      Transfers data from a work-item in the sub-group to another work-item in
+      the same sub-group having a sub_group_local_id equal to (source
+      sub_group_local_id - offset). If the sub_group_local_id of the work-item
+      that is about to receive the data is less than the smallest
+      sub_group_local_id of the work-item participating in the shuffle group,
+      the sub_group_local_id is wrapped back into the sub-group of work-items
+      participating in the shuffle operation.
+
+      source_value identifies the data that is transferred in the shuffle
+      operation.
+
+      offset identifies the difference in the values of sub_group_local_id of
+      the two work-items in the sub-group among which the data transfer is
+      requested.
+
+      width identifies the grouping of work-items in a sub-group among which
+      the shuffle operation is requested. It can refer to a group of 4 or 8
+      work-items or all work-items in a sub-group.
+
+      default_value identifies the data that is transferred when the source
+      work-item is inactive or out of the shuffle width.
+
+      Example:
+
+      uint i = get_global_id(0);
+      buf1D[i] = qcom_sub_group_shuffle_rotate_down(buf1D[i], offset,
+          CLK_SUB_GROUP_SHUFFLE_WIDTH_W4_QCOM, 0x22);
+
+      When offset = 1, buf1D[4] will be:
+      Before: {0xAA, 0xBB, 0xCC, 0xDD}
+      After:  {0xBB, 0xCC, 0xDD, 0xAA}
+
+      When offset = 3, buf1D[4] will be:
+      Before: {0xAA, 0xBB, 0xCC, 0xDD}
+      After:  {0xDD, 0xAA, 0xBB, 0xCC}
+
+    * qcom_sub_group_shuffle_xor
+
+      <gentype> qcom_sub_group_shuffle_xor(
+          <gentype> source_value,
+          uint offset,
+          qcom_sub_group_shuffle_width_modes_t width,  
+          <gentype> default_value)
+
+      Transfers data from a work-item in the sub-group to another work-item in
+      the same sub-group whose sub_group_local_id is equal to (source
+      sub_group_local_id XOR offset). When all work-items execute this call, it
+      results in data exchange among them. 
+ 
+      source_value identifies the data that is transferred in the shuffle
+      operation.
+
+      offset identifies the destination work-item, whose sub_group_local_id is
+      a bitwise XOR of the source sub_group_local_id.
+ 
+      width identifies the the grouping of work-items in a sub-group among
+      which the shuffle operation is requested. It can refer to a group of 4 or
+      8 work-items or all work-items in a sub-group.
+
+      default_value identifies the data that is transferred when the source
+      work-item is inactive or out of the shuffle width.
+
+      Example:
+
+      uint i = get_global_id(0);
+      buf1D[i] = qcom_sub_group_shuffle_xor(buf1D[i], offset,
+          CLK_SUB_GROUP_SHUFFLE_WIDTH_W4_QCOM, 0x33);
+
+      When offset = 1, buf1D[4] will be:
+      Before: {0xAA, 0xBB, 0xCC, 0xDD}
+      After:  {0xBB, 0xAA, 0xDD, 0xCC}
+
+      When offset = 3, buf1D[4] will be:
+      Before: {0xAA, 0xBB, 0xCC, 0xDD}
+      After:  {0xDD, 0xCC, 0xBB, 0xAA}
+
+    Limitations
+
+        These shuffle built-in functions need to be encountered by each
+        work-item in a sub-group that is participating in the shuffle operation.
+        Calling the shuffle function inside a conditional may result in
+        undefined behaviour, if the condition is satisfied only by certain
+        work-items.
+
+        Care should be taken to ensure that there are sufficient work-items
+        available to fill the full width of the shuffle group under execution.
+
+        * When width is CLK_SUB_GROUP_SHUFFLE_WIDTH_WAVE_SIZE_QCOM, ensure that 
+          there are work-items more or equal to the sub-group size, available to
+          execute.
+
+        * When width is CLK_SUB_GROUP_SHUFFLE_WIDTH_W4_QCOM, ensure that there
+          are 4 or more work-items.
+
+        * When width is CLK_SUB_GROUP_SHUFFLE_WIDTH_W8_QCOM, ensure that there
+          are 8 or more work-items.
+
+        All work-items participating in a shuffle operation should use the same
+        offset. Any divergence in offset values across the work-items will lead
+        to undefined results.
+
+        The offset value passed in to a shuffle operation should not exceed the 
+        width specified for that shuffle operation. Violation of this rule will
+        lead to undefined results.
+
+        * When width is CLK_SUB_GROUP_SHUFFLE_WIDTH_WAVE_SIZE_QCOM, the offset
+          should be less than maximum sub-group size, as returned by
+          CL_KERNEL_MAX_SUB_GROUP_SIZE_FOR_NDRANGE_KHR.
+
+        * When width is CLK_SUB_GROUP_SHUFFLE_WIDTH_W8_QCOM, the offset should
+          be less than 8.
+
+        * When width is CLK_SUB_GROUP_SHUFFLE_WIDTH_W4_QCOM, the offset should
+          be less than 4.
+
+Revision History
+
+    Revision 1, 2016/10/04: Initial version.
+    Revision 2, 2016/10/13: Fix typos.
+    Revision 3, 2016/11/14: Updated built-ins to include default_value.
+    Revision 4, 2017/06/16: Clean up. No functional changes.
+    Revision 5, 2017/11/13: Clean up. No functional changes.
+    Revision 6, 2018/01/19: Formatting and misc changes. No functional changes.
+

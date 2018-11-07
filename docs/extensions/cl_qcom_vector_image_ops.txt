@@ -1,0 +1,680 @@
+Name Strings
+
+    cl_qcom_vector_image_ops
+
+Contributors
+
+    Roto Le, Qualcomm Technologies, Inc.
+    Balaji Calidas, Qualcomm Technologies, Inc.
+    Vijay Ganugapati, Qualcomm Technologies, Inc.
+    Peng Zhou, Qualcomm Technologies, Inc.
+
+Contact
+
+    bcalidas at qti dot qualcomm dot com
+
+Version
+
+    Version 9, 2018/04/25
+
+Status
+
+    Shipping
+
+Extension Type
+
+    OpenCL device extension
+
+Dependencies
+
+    OpenCL 2.0 or later is required. cl_qcom_extract_image_plane is required.
+
+    This extension is written against the OpenCL 2.0 Specification.
+
+Overview
+
+    This extension introduces a new set of OpenCL-C built-in functions for
+    reading and writing a group of OpenCL image elements in a single operation.
+    They allow the application to either read in or write out a single
+    component across multiple image elements. They are therefore called vector
+    image operations and can offer potential performance gains as well as ease
+    of development. Certain built-ins are targeted at specific image formats
+    such as NV12_Y and TP10_UV. Y only and UV only images are single-plane
+    derivatives of multi-plane planar images. They can be created by using the
+    cl_qcom_extract_image_plane extension.
+
+Header File
+
+    None
+
+New Procedures and Functions
+
+    New OpenCL-C built-in vector image read functions:
+
+    The new image read builtins work across a range of input image formats and
+    their name indicates the access pattern.
+
+    float4 qcom_read_imagef_2x2(image2D_t image, sampler_t sampler,
+        float2 coord, int compid);
+
+    half4 qcom_read_imageh_2x2(image2D_t image, sampler_t sampler,
+        float2 coord, int compid);
+
+    uint4 qcom_read_imageui_2x2(image2D_t image, sampler_t sampler,
+        float2 coord, int compid);
+
+    int4 qcom_read_imagei_2x2(image2D_t image, sampler_t sampler,
+        float2 coord, int compid);
+
+    float4 qcom_read_imagef_4x1(image2d_t image, sampler_t sampler,
+        float2 coord, int compid);
+
+    half4 qcom_read_imageh_4x1(image2d_t image, sampler_t sampler,
+        float2 coord, int compid);
+
+    uint4 qcom_read_imageui_4x1(image2d_t image, sampler_t sampler,
+        float2 coord, int compid);
+
+    int4 qcom_read_imagei_4x1(image2d_t image, sampler_t sampler,
+        float2 coord, int compid);
+
+    New OpenCL-C built-in vector image write functions:
+
+    The new image write builtins have a naming convention as 
+    qcom_write_imagefv_##pattern_suffix##_format_suffix##.
+
+    Each write builtin has an image format that it supports and the name
+    encodes the destination image format and the destination image plane.
+
+    OpenCL-C built-in vector write functions:
+
+    qcom_write_imagefv_2x1_n8n00(image2d_t image, int2 coord, float color[2])
+
+    qcom_write_imagefv_2x1_n8n01(image2d_t image, int2 coord, float2 color[2])
+
+    qcom_write_imagefv_2x1_n10p00(image2d_t image, int2 coord, float color[2])
+
+    qcom_write_imagefv_2x1_n10p01(image2d_t image, int2 coord, float2 color[2])
+
+    qcom_write_imagefv_3x1_n10t00(image2d_t image, int2 coord, float color[3])
+
+    qcom_write_imagefv_3x1_n10t01(image2d_t image, int2 coord, float2 color[3])
+
+    qcom_write_imagefv_4x1_n8n00(image2d_t image, int2 coord, float color[4])
+
+    qcom_write_imagefv_4x1_n10p00(image2d_t image, int2 coord, float color[4])
+
+    qcom_write_imagefv_2x2_n8n00(image2d_t image, int2 coord, float color[4])
+
+    qcom_write_imagefv_2x2_n10p00(image2d_t image, int2 coord, float color[4])
+
+    qcom_write_imagefv_4x1_n10m00(image2d_t image, int2 coord, float color[4])
+
+    qcom_write_imagefv_4x1_n12m00(image2d_t image, int2 coord, float color[4])
+
+    qcom_write_imagehv_2x1_n8n00(image2d_t image, int2 coord, half color[2])
+
+    qcom_write_imagehv_2x1_n8n01(image2d_t image, int2 coord, half2 color[2])
+
+    qcom_write_imagehv_2x1_n10p00(image2d_t image, int2 coord, half color[2])
+
+    qcom_write_imagehv_2x1_n10p01(image2d_t image, int2 coord, half2 color[2])
+
+    qcom_write_imagehv_3x1_n10t00(image2d_t image, int2 coord, half color[3])
+
+    qcom_write_imagehv_3x1_n10t01(image2d_t image, int2 coord, half2 color[3])
+
+    qcom_write_imagehv_4x1_n8n00(image2d_t image, int2 coord, half color[4])
+
+    qcom_write_imagehv_4x1_n10p00(image2d_t image, int2 coord, half color[4])
+
+    qcom_write_imagehv_2x2_n8n00(image2d_t image, int2 coord, half color[4])
+
+    qcom_write_imagehv_2x2_n10p00(image2d_t image, int2 coord, half color[4])
+
+    qcom_write_imageuiv_4x1_u10m00(image2d_t image, int2 coord, uint color[4])
+
+    qcom_write_imageuiv_4x1_u12m00(image2d_t image, int2 coord, uint color[4])
+
+New Tokens
+
+    None
+
+Additions to Chapter 6.13.14.2 of the OpenCL-C 2.0 Specification
+(Built-in Image Read Functions)
+
+    float4 qcom_read_imagef_2x2(image2D_t image,  sampler_t sampler,
+        float2 coord, int compid);
+
+    half4 qcom_read_imageh_2x2(image2D_t image,  sampler_t sampler,
+        float2 coord, int compid);
+
+    uint4 qcom_read_imageui_2x2(image2D_t image, sampler_t sampler,
+        float2 coord, int compid);
+
+    int4 qcom_read_imagei_2x2(image2D_t image, sampler_t sampler,
+        float2 coord, int compid);
+
+    float4 qcom_read_imagef_4x1(image2d_t image, sampler_t sampler,
+        float2 coord, int compid);
+
+    half4 qcom_read_imageh_4x1(image2d_t image, sampler_t sampler,
+        float2 coord, int compid);
+
+    uint4 qcom_read_imageui_4x1(image2d_t image, sampler_t sampler,
+        float2 coord, int compid);
+
+    int4 qcom_read_imagei_4x1(image2d_t image, sampler_t sampler,
+        float2 coord, int compid);
+
+    Argument <coord> specifies the coordinate for the base point used for
+    selecting image elements. Only floating point coordinate can be used
+    otherwise the kernel will fail to compile. For a YUV image format such as
+    NV12, the coordinate interpretation is Y centric. The Y centric coordinate
+    interpretation also applies to Y only formats such as NV12_Y. For UV only
+    formats such as NV12_UV, the coordinate interpretation is the same as it
+    would be for any 2 component format. In this case the UV pixels are selected
+    independently from Y.
+
+    Argument <compid> specifies the component/plane of the image where the
+    vector operation is applied. The <compid> can be in the range of [0,
+    max_num_comp-1]. An image's components are indexed based on the order of the
+    components defined in the image format's channel order. For YUV images
+    formats such as NV12, the Y compid, is 0, the U compid is 1 and the V
+    compid is 2. However for Y only formats such as NV12_Y compid 0 maps to Y
+    and for NV12_UV  compid 0 maps to U, compid 1 maps to V.
+
+    For each built-in vector operation, the pattern of image element vectors and
+    the order of the elements within each vector are critical, and hence
+    application must strictly follow them in order to get correct results.
+
+    qcom_read_imagex_2x2 operations read 4 elements in the form of a 2x2 vector
+    from the input <image>. The base point specified by <coord> is the upper
+    left corner of this vector. element[0] is the lower left element. The four
+    output elements are ordered in counter clock wise starting from element[0]
+    in the 2x2 vector, specifically element[1] is the lower right, element[2] is
+    the upper right, and element[3] is the upper left one (the base point).
+
+        *********
+        * 3 * 2 *
+        *********
+        * 0 * 1 *
+        *********
+
+    qcom_read_imagex_4x1 operations read 4 elements in the form of a 4x1 vector
+    from the input <image>. Denote element[0] as the element located at the base
+    point <coord>. The four output elements are ordered from left to right
+    starting from element[0] in the 4x1 vector. Specifically, element[0] is the
+    leftmost element, following by element[1], element[2], and element[3].
+
+        *****************
+        * 0 * 1 * 2 * 3 *
+        *****************
+
+    Note that for a YUV image, a 4x1 read of U or V values will end up returning
+    the U or V values that correspond to the selected Y pixels. In contrast a
+    2x2 read of the U or V planes returns four distinct U or V values. For
+    example, in reference to the following 4x4 image:
+
+        *************************
+        * Y00 * Y01 * Y02 * Y03 *
+        *************************
+        * Y10 * Y11 * Y12 * Y13 *
+        *************************
+        * Y20 * Y21 * Y22 * Y23 *
+        *************************
+        * Y30 * Y31 * Y32 * Y33 *
+        *************************
+
+        ***********************
+        * U00, V00 * U01, V01 *
+        ***********************
+        * U10, V10 * U11, V11 *
+        ***********************
+
+    A 4x1 read of the U plane centered at Y00 will return (U00, U00, U01, U01),
+    and a 2x2 read centered at the same point will return (U10, U11, U01, U00).
+
+    When reading
+
+    In order to select the right vector of image elements, the base point must
+    be set properly within the spatial area following the rules for ordering
+    image elements presented above.
+
+    For qcom_read_imagef_2x2, ideally, the base point should be located at the
+    center of the 2x2 quad. In particular, an ideal setup for the <coord> in
+    qcom_read_imagef_2x2 should be as following:
+
+        coord.x = (element[0].x + element[1].x)/2
+        coord.y = (element[0].y + element[3].y)/2
+
+    For qcom_read_imagef_4x1, ideally, the base point should be located at the
+    center of the leftmost element in the 4x1 vector. In particular, an ideal
+    setup for the <coord> in qcom_read_imagef_4x1 should be:
+
+        coord.x = element[0].x
+        coord.y = element[0].y
+
+    qcom_read_imagef_2x2 and qcom_read_imagef_4x1 return floating-point values
+    in the range [0.0, 1.0] for image objects created with
+    image_channel_data_type set to CL_FLOAT, CL_HALF_FLOAT, CL_UNORM_XX and
+    CL_QCOM_UNORM_INT10.
+
+    qcom_read_imagei_2x2, qcom_read_imageui_2x2, qcom_read_imagei_4x1 and
+    qcom_read_imageui_4x1 return unnormalized signed and unsigned integer values
+    respectively. Each channel will be stored in a 32-bit integer.
+
+    qcom_read_imagei_2x2 and qcom_read_imagei_4x1 can only be used with image
+    objects created with image_channel_data_type set to either CL_SIGNED_INT8,
+    CL_SIGNED_INT16, or CL_SIGNED_INT32.
+
+    If the image_channel_data_type is not one of the above values, the values
+    returned by read_imageui are undefined.
+
+    qcom_read_imageui_2x2 and qcom_read_imagei_4x1 can only be used with image
+    objects created with image_channel_data_type set either CL_UNSIGNED_INT8,
+    CL_UNSIGNED_INT16, or CL_UNSIGNED_INT32.
+
+    If the image_channel_data_type is not one of the above values, the values
+    returned by read_imageui are undefined.
+
+Additions to Chapter 6.13.14.4 of the OpenCL-C 2.0 Specification
+(Built-in Image Write Functions)
+
+    OpenCL-C built-in vector write functions:
+
+        qcom_write_imagefv_2x1_n8n00(image2d_t image, int2 coord,
+            float color[2])
+
+        qcom_write_imagefv_2x1_n8n01(image2d_t image, int2 coord,
+            float2 color[2])
+
+        qcom_write_imagefv_2x1_n10p00(image2d_t image, int2 coord,
+            float color[2])
+
+        qcom_write_imagefv_2x1_n10p01(image2d_t image, int2 coord,
+            float2 color[2])
+
+        qcom_write_imagefv_3x1_n10t00(image2d_t image, int2 coord,
+            float color[3])
+
+        qcom_write_imagefv_3x1_n10t01(image2d_t image, int2 coord,
+            float2 color[3])
+
+        qcom_write_imagefv_4x1_n8n00(image2d_t image, int2 coord,
+            float color[4])
+
+        qcom_write_imagefv_4x1_n10p00(image2d_t image, int2 coord,
+            float color[4])
+
+        qcom_write_imagefv_4x1_n10m00(image2d_t image, int2 coord,
+            float color[4])
+
+        qcom_write_imagefv_4x1_n12m00(image2d_t image, int2 coord,
+            float color[4])
+
+        qcom_write_imagefv_2x2_n8n00(image2d_t image, int2 coord,
+            float color[4])
+
+        qcom_write_imagefv_2x2_n10p00(image2d_t image, int2 coord,
+            float color[4])
+
+        qcom_write_imagehv_2x1_n8n00(image2d_t image, int2 coord,
+            half color[2])
+
+        qcom_write_imagehv_2x1_n8n01(image2d_t image, int2 coord,
+            half color[2])
+
+        qcom_write_imagehv_2x1_n10p00(image2d_t image, int2 coord,
+            half color[2])
+
+        qcom_write_imagehv_2x1_n10p01(image2d_t image, int2 coord,
+            half color[2])
+
+        qcom_write_imagehv_3x1_n10t00(image2d_t image, int2 coord,
+            half color[3])
+
+        qcom_write_imagehv_3x1_n10t01(image2d_t image, int2 coord,
+            half color[3])
+
+        qcom_write_imagehv_4x1_n8n00(image2d_t image, int2 coord,
+            half color[4])
+
+        qcom_write_imagehv_4x1_n10p00(image2d_t image, int2 coord,
+            half color[4])
+
+        qcom_write_imagehv_2x2_n8n00(image2d_t image, int2 coord,
+            half color[4])
+
+        qcom_write_imagehv_2x2_n10p00(image2d_t image, int2 coord,
+            half color[4])
+
+        qcom_write_imageuiv_4x1_u10m00(image2d_t image, int2 coord,
+            uint color[4])
+
+        qcom_write_imageuiv_4x1_u12m00(image2d_t image, int2 coord,
+            uint color[4])
+
+    Argument <coord> specifies the coordinate for the base point used for
+    selecting image elements following the pattern defined for the given
+    built-in function. Only floating point coordinate can be specified
+    otherwise the kernel will fail to compile.
+
+    Argument <color> holds the vector of image elements being written out to the
+    output <image> by the respective vector write operation. The size of the
+    <color> vector and its data type depends on the image format supported by
+    the respective vector write operation.
+
+    Each built-in vector write function only support certain image format(s).
+    There are different built-in functions writing out the same vector pattern
+    (e.g. 2x1 vector pattern) but they support different image formats as shown
+    in the following table.
+
+    -------------------------------------------------------------------------
+    *       Vector Write Function       *       Supported Image Format      *
+    -------------------------------------------------------------------------
+    *   qcom_write_imagefv_2x1_n8n00    *   CL_QCOM_NV12_Y                  *
+    *                                   *   CL_QCOM_COMPRESSED_NV12_Y       *
+    -------------------------------------------------------------------------
+    *   qcom_write_imagefv_2x1_n8n01    *   CL_QCOM_NV12_UV                 *
+    *                                   *   CL_QCOM_COMPRESSED_NV12_UV      *
+    -------------------------------------------------------------------------
+    *   qcom_write_imagefv_2x1_n10p00   *   CL_QCOM_P010_Y                  *
+    *                                   *   CL_QCOM_COMPRESSED_P010_Y       *
+    -------------------------------------------------------------------------
+    *   qcom_write_imagefv_2x1_n10p01   *   CL_QCOM_P010_UV                 *
+    *                                   *   CL_QCOM_COMPRESSED_P010_UV      *
+    -------------------------------------------------------------------------
+    *   qcom_write_imagefv_3x1_n10t00   *   CL_QCOM_TP10_Y                  *
+    *                                   *   CL_QCOM_COMPRESSED_TP10_Y       *
+    -------------------------------------------------------------------------
+    *   qcom_write_imagefv_3x1_n10t01   *   CL_QCOM_TP10_UV                 *
+    *                                   *   CL_QCOM_COMPRESSED_TP10_UV      *
+    -------------------------------------------------------------------------
+    *   qcom_write_imagefv_4x1_n8n00    *   CL_QCOM_NV12_Y                  *
+    -------------------------------------------------------------------------
+    *   qcom_write_imagefv_4x1_n10p00   *   CL_QCOM_P010_Y                  *
+    -------------------------------------------------------------------------
+    *   qcom_write_imagefv_4x1_n10m00   *   CL_QCOM_UNORM_MIPI10            *
+    -------------------------------------------------------------------------
+    *   qcom_write_imagefv_4x1_n12m00   *   CL_QCOM_UNORM_MIPI12            *
+    -------------------------------------------------------------------------
+    *   qcom_write_imagefv_2x2_n8n00    *   CL_QCOM_COMPRESSED_NV12_Y       *
+    -------------------------------------------------------------------------
+    *   qcom_write_imagefv_2x2_n10p00   *   CL_QCOM_COMPRESSED_P010_Y       *
+    -------------------------------------------------------------------------
+    *   qcom_write_imagehv_2x1_n8n00    *   CL_QCOM_NV12_Y                  *
+    *                                   *   CL_QCOM_COMPRESSED_NV12_Y       *
+    -------------------------------------------------------------------------
+    *   qcom_write_imagehv_2x1_n8n01    *   CL_QCOM_NV12_UV                 *
+    *                                   *   CL_QCOM_COMPRESSED_NV12_UV      *
+    -------------------------------------------------------------------------
+    *   qcom_write_imagehv_2x1_n10p00   *   CL_QCOM_P010_Y                  *
+    *                                   *   CL_QCOM_COMPRESSED_P010_Y       *
+    -------------------------------------------------------------------------
+    *   qcom_write_imagehv_2x1_n10p01   *   CL_QCOM_P010_UV                 *
+    *                                   *   CL_QCOM_COMPRESSED_P010_UV      *
+    -------------------------------------------------------------------------
+    *   qcom_write_imagehv_3x1_n10t00   *   CL_QCOM_TP10_Y                  *
+    *                                   *   CL_QCOM_COMPRESSED_TP10_Y       *
+    -------------------------------------------------------------------------
+    *   qcom_write_imagehv_3x1_n10t01   *   CL_QCOM_TP10_UV                 *
+    *                                   *   CL_QCOM_COMPRESSED_TP10_UV      *
+    -------------------------------------------------------------------------
+    *   qcom_write_imagehv_4x1_n8n00    *   CL_QCOM_NV12_Y                  *
+    -------------------------------------------------------------------------
+    *   qcom_write_imagehv_4x1_n10p00   *   CL_QCOM_P010_Y                  *
+    -------------------------------------------------------------------------
+    *   qcom_write_imagehv_2x2_n8n00    *   CL_QCOM_COMPRESSED_NV12_Y       *
+    -------------------------------------------------------------------------
+    *   qcom_write_imagehv_2x2_n10p00   *   CL_QCOM_COMPRESSED_P010_Y       *
+    -------------------------------------------------------------------------
+    *   qcom_write_imageuiv_4x1_u10m00  *   CL_QCOM_UNSIGNED_MIPI10         *
+    -------------------------------------------------------------------------
+    *   qcom_write_imageuiv_4x1_u12m00  *   CL_QCOM_UNSIGNED_MIPI12         *
+    -------------------------------------------------------------------------
+
+    qcom_write_image#v_2x1_x##y## functions write out two values held in
+    <color> in the form of a horizontal 2x1 vector starting at coordinate
+    <coord>. The <coord>.x must be multiple of 2. The behavior of the built-in
+    is undefined when coord.x is not multiple of 2. Denote element[0] as the
+    element located at the coordinate <coord>. The two elements are written out
+    in the left-to-right order as illustrated in the following 2x1 vector.
+
+        *********
+        * 0 * 1 *
+        *********
+
+    qcom_write_image#v_3x1_x##y## functions write out three values held in
+    <color> in the form of a horizontal 3x1 vector starting at coordinate
+    <coord>. The <coord>.x must be multiple of 3. The behavior of the built-in
+    is undefined when coord.x is not multiple of 3. Denote element[0] as the
+    element located at the coordinate <coord>. The three elements are written
+    out in the left-to-right order as illustrated in the following 3x1 vector.
+
+        *************
+        * 0 * 1 * 2 *
+        *************
+
+    qcom_write_image#v_4x1_x##y## functions write out four values held in
+    <color> in the form of a horizontal 4x1 vector starting at coordinate
+    <coord>. For MIPI images, the <coord>.x must be a multiple of 4. For other
+    formats, the built-in does not have any alignment restriction on coordinate
+    <coord> -- <coord>.x need not be a multiple of 4. Denote element[0] as the
+    element located at the coordinate <coord>. The four elements are written out
+    in the left-to-right order as illustrated in the following 4x1 vector.
+
+        *****************
+        * 0 * 1 * 2 * 3 *
+        *****************
+
+    qcom_write_image#v_2x2_x##y## functions write out four values held in
+    <color> in the form of a 2x2 quad with a base point at coordinate <coord>.
+    Both <coord>.x and <coord>.y must be multiples of 2. In the illustration
+    below, the base point is at position 0. The four elements of <color> are
+    written out in the order illustrated in the following 2x2 quad. For example,
+    <color>[3] will be written to <coord> + (int2)(1, 1). 
+ 
+        *********
+        * 0 * 1 *
+        *********
+        * 2 * 3 *
+        *********
+
+Sample Code
+
+    1) Built-in calls for reading component values in a group of 2x2 RGBA UINT8
+       pixels
+
+        int     compid  = 0;
+        float2  coord   = (float2)(0.0f, 0.0f);
+
+        // Set coord(x,y) for base point for reading the 2x2 pixel group.
+        // Consider the quad of interest has the following four pixels:
+        // pixel0 at (2.0f, 1.0f); pixel1 at (3.0f, 1.0f)
+        // pixel2 at (3.0f, 0.0f); pixel3 at (2.0f, 0.0f)
+        coord.x = (2.0f + 3.0f)/2; // coord.x = (pix0.coord.x + pix1.coord.x)/2
+        coord.y = (1.0f + 0.0f)/2; // coord.y = (pix0.coord.y + pix3.coord.y)/2
+
+        // Read 4 R values in a group of 2x2 pixels starting from coord(x,y)
+        compid = 0;
+        uint4 r_2x2 = qcom_read_imageui_2x2(2D_rgba_img, sampler, coord,
+            compid);
+
+        // Read 4 G values in a group of 2x2 pixels starting from coord(x,y)
+        compid = 1;
+        uint4 g_2x2 = qcom_read_imageui_2x2(2D_rgba_img, sampler, coord,
+            compid);
+
+        // Read 4 B values in a group of 2x2 pixels starting from coord(x,y)
+        compid = 2;
+        uint4 b_2x2 = qcom_read_imageui_2x2(2D_rgba_img, sampler, coord,
+            compid);
+
+        // Read 4 A values in a group of 2x2 pixels starting from coord(x,y)
+        compid = 3;
+        uint4 a_2x2 = qcom_read_imageui_2x2(2D_rgba_img, sampler, coord,
+            compid);
+
+    2) Built-in calls for reading groups of 2x2 image elements from NV12 image
+       planes.
+
+        int     compid  = 0;
+        float2  coord   = (float2)(0.0f, 0.0f);
+
+        // Set coord(x,y) for base point for reading the 2x2 group.
+        // Consider the quad of interest has the following four elements:
+        // element1 at (2.0f, 1.0f); element1 at (3.0f, 1.0f)
+        // element2 at (3.0f, 0.0f); element3 at (2.0f, 0.0f)
+
+        // coord.x = (element0.coord.x + element1.coord.x)/2
+        coord.x = (2.0f + 3.0f)/2;
+        // coord.y = (element0.coord.y + element3.coord.y)/2
+        coord.y = (1.0f + 0.0f)/2;
+
+        // NV12's plane order depends on hardware specification (e.g. Y-U-V).
+        // Read 2x2 Y elements surrounding the center at coord(x,y)
+        compid = 0;
+        float4 y_2x2 = qcom_read_imagef_2x2(2D_nv12_img, sampler, coord,
+            compid);
+
+        // Read 2x2 U elements surrounding the center at coord(x,y)
+        compid = 1;
+        float4 u_2x2 = qcom_read_imagef_2x2(2D_nv12_img, sampler, coord,
+            compid);
+
+        // Read 2x2 V elements surrounding the center at coord(x,y)
+        compid = 2;
+        float4 v_2x2 = qcom_read_imagef_2x2(2D_nv12_img, sampler, coord,
+            compid);
+
+    3) Built-in calls for reading groups of 4x1 image elements from NV12 image
+       planes.
+
+        int     compid  = 0;
+        float2  coord   = (float2)(0.0f, 0.0f);
+
+        // Set coord(x,y) for base point for reading the 4x1 group.
+        // Consider the group of interest has the following four elements:
+        // element0 at (2.0f, 1.0f); element1 at (3.0f, 1.0f)
+        // element2 at (4.0f, 1.0f); element3 at (5.0f, 1.0f)
+        coord.x = 2.0f; // coord.x = element0.coord.x
+        coord.y = 1.0f; // coord.y = element0.coord.y
+
+        // Read 4x1 Y elements starting from the base point at coord(x,y)
+        compid = 0;
+        float4 y_4x1 = qcom_read_imagef_4x1(2D_nv12_img, sampler, coord,
+            compid);
+
+        // Read 4x1 U elements starting from the base point at coord(x,y)
+        compid = 1;
+        float4 u_4x1 = qcom_read_imagef_4x1(2D_nv12_img, sampler, coord,
+            compid);
+
+        // Read 4x1 V elements starting from the base point at coord(x,y)
+        compid = 2;
+        float4 v_4x1 = qcom_read_imagef_4x1(2D_nv12_img, sampler, coord,
+            compid);
+
+    4) Built-in call for writing a group of 3x1 image elements to TP10_Y image.
+
+        float   packed_color_y[3]   = {0};
+        int2    coord               = (float2)(0.0f, 0.0f);
+
+        // Set coord(x,y) for the base point for writing the 3x1 TP10_Y group.
+        // It is important to notice that coord.x must be multiple of 3.
+        // Consider the 3x1 group to be written out to the following coordinate:
+        // element0 at (3, 2); element1 at (4, 2); element2 at (5, 2);
+        coord.x = 3; // coord.x = element0.coord.x
+        coord.y = 2; // coord.y = element0.coord.y
+
+        // Set the color values
+        packed_color_y[0] = element0;
+        packed_color_y[1] = element1;
+        packed_color_y[2] = element2;
+
+        // Write out
+        qcom_write_imagefv_3x1_n10t00(2d_tp10_y_img, coord, packed_color_y);
+
+        5) Built-in call for writing a group of 3x1 image elements to TP10_UV
+           image.
+
+        float2  packed_color_uv[3] = {(float2)(0,0)};
+        int2    coord              = (int2)(0, 0);
+
+        // Set coord(x,y) for the base point for writing the 3x1 TP10_UV group.
+        // It is important to notice that coord.x must be multiple of 3.
+        // Consider the 3x1 group to be written out to the following coordinate:
+        // element0 at (6, 1); element1 at (7, 1); element2 at (8, 1);
+        coord.x = 6; // coord.x = element0.coord.x
+        coord.y = 1; // coord.y = element0.coord.y
+
+        // Set the color values
+        packed_color_uv[0].s0 = element0.s0;
+        packed_color_uv[0].s1 = element0.s1;
+        packed_color_uv[1].s0 = element1.s0;
+        packed_color_uv[1].s1 = element1.s1;
+        packed_color_uv[2].s0 = element2.s0;
+        packed_color_uv[2].s1 = element2.s1;
+
+        // Write out
+        qcom_write_imagefv_3x1_n10t01(2d_tp10_uv_img, coord, packed_color_uv);
+
+    6) Built-in call for writing a group of 4x1 image elements to NV12_Y image.
+
+        float   packed_color_y[4]   = {0};
+        int2    coord               = (int2)(0, 0);
+
+        // Set coord(x,y) for the base point for writing the 4x1 group. coord.x
+        // must not be multiple of 4. It can be any value in the valid range.
+        // However, pratically, the element0.coord.x is often set to multiple of
+        // 4. Consider the 4x1 group to be written out to the following
+        // coordinate:
+        // element0 at (4, 3); element1 at (5, 3);
+        // element2 at (6, 3); element3 at (7, 3);
+        coord.x = 4; // coord.x = element0.coord.x
+        coord.y = 3; // coord.y = element0.coord.y
+
+        // Set the color values
+        packed_color_y[0] = element0;
+        packed_color_y[1] = element1;
+        packed_color_y[2] = element2;
+        packed_color_y[3] = element3;
+
+        // Write out
+        qcom_write_imagefv_4x1_n8n00(2d_p010_y_img, coord, packed_color_y);
+
+    7) Built-in call for writing a group of 2x1 image elements to P010_Y image.
+
+        half   packed_color_y[2] = {0};
+        int2   coord             = (int2)(0, 0);
+
+        // Set coord(x,y) for the base point for writing the 2x1 group. coord.x
+        // must not be multiple of 2. It can be any value in the valid range.
+        // However, pratically, the element0.coord.x is often set to multiple of
+        // 2. Consider the 2x1 group to be written out to the following
+        // coordinate:
+        // element0 at (4, 3); element1 at (5, 3);
+        coord.x = 4; // coord.x = element0.coord.x
+        coord.y = 3; // coord.y = element0.coord.y
+
+        // Set the color values
+        packed_color_y[0] = element0;
+        packed_color_y[1] = element1;
+
+        // Write out
+        qcom_write_imagehv_2x1_n10p00(2d_p010_y_img, coord, packed_color_y);
+
+Revision History
+
+    Revision 1, 2017/02/28: Initial version.
+    Revision 2, 2017/06/16: Clean up. No functional changes.
+    Revision 3, 2017/07/19: Added vector write_imageh details. Added
+                            reference to cl_qcom_extract_image_plane.
+    Revision 4, 2017/08/03: Added additional details about single plane access.
+    Revision 5, 2017/10/10: Corrected documentation for 2x2 writes.
+    Revision 6, 2017/11/13: Clean up. No functional changes.
+    Revision 7, 2018/01/19: Formatting and misc changes. No functional changes.
+    Revision 8, 2018/02/05: Clarified vector read coordinate interpretation.
+    Revision 9, 2018/04/25: Added MIPI vector write built-ins.
+
