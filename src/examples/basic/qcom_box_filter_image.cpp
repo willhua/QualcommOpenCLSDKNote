@@ -41,7 +41,7 @@ static const char *PROGRAM_SOURCE[] = {
 "    int     wid_y            = get_global_id(1);\n",
 "    int2    downscaled_coord = (int2)(wid_x, wid_y);\n",
 "    float2  src_coord        = (float2)((float)wid_x + 0.5f, (float)wid_y + 0.5f) * unpacked_scale;\n",
-"    float4  downscaled_pixel = qcom_box_filter_imagef(src_image, sampler, src_coord, box_size);\n",
+"    float4  downscaled_pixel = qcom_box_filter_imagef(src_image, sampler, src_coord, box_size);\n",    //高通内置函数qcom_box_filter_imagef
 "    write_imagef(downscaled_image, downscaled_coord, downscaled_pixel);\n",
 "}\n"
 };
@@ -61,7 +61,7 @@ int main(int argc, char** argv)
 
     cl_wrapper wrapper;
     cl_program   program             = wrapper.make_program(PROGRAM_SOURCE, PROGRAM_SOURCE_LEN);
-    cl_kernel    y_plane_kernel      = wrapper.make_kernel("downscale_single_plane", program);
+    cl_kernel    y_plane_kernel      = wrapper.make_kernel("downscale_single_plane", program);  //基于同一个program可以创建多个相同的kernel对象
     cl_kernel    uv_plane_kernel     = wrapper.make_kernel("downscale_single_plane", program);
     cl_context   context             = wrapper.get_context();
     nv12_image_t src_nv12_image_info = load_nv12_image_data(src_image_filename);
@@ -170,7 +170,7 @@ int main(int argc, char** argv)
             CL_MEM_READ_ONLY,
             &src_y_plane_format,
             &src_y_plane_desc,
-            NULL,
+            NULL,   //没有指定指针
             &err
     );
     if (err != CL_SUCCESS)
@@ -186,6 +186,7 @@ int main(int argc, char** argv)
     cl_image_desc src_uv_plane_desc;
     std::memset(&src_uv_plane_desc, 0, sizeof(src_uv_plane_desc));
     src_uv_plane_desc.image_type   = CL_MEM_OBJECT_IMAGE2D;
+    //NOTICE!!!
     // The image dimensions for the uv-plane derived image must be the same as the parent image, even though the
     // actual dimensions of the uv-plane differ by a factor of 2 in each dimension.
     src_uv_plane_desc.image_width  = src_nv12_image_info.y_width;
@@ -197,7 +198,7 @@ int main(int argc, char** argv)
             CL_MEM_READ_ONLY,
             &src_uv_plane_format,
             &src_uv_plane_desc,
-            NULL,
+            NULL,   //并没有指定指针，
             &err
     );
     if (err != CL_SUCCESS)
@@ -257,7 +258,7 @@ int main(int argc, char** argv)
         std::cerr << "Error " << err << " with clCreateImage for destination image uv plane." << "\n";
         std::exit(err);
     }
-
+    //TODO:
     /*
      * Step 3: Copy data to input image planes. Note that for linear NV12 images you must observe row alignment
      * restrictions. (You may also write to the ion buffer directly if you prefer, however using clEnqueueMapImage for
