@@ -27,7 +27,7 @@ static const char *HELP_MESSAGE = "\n"
 "Use it to test your build tools.\n";
 
 static const char *PROGRAM_SOURCE[] = {
-"__kernel void copy(__global char *src,\n",
+"__kernel void copy(__global char *src,\n", //如果使用cl_mem clCreateBuffer对象， 那么参数应该为指针的形式
 "                   __global char *dst\n",
 "                   )\n",
 "{\n",
@@ -72,7 +72,7 @@ int main(int argc, char** argv)
     fin.seekg(0, std::ios::end);
     const auto        fin_end   = fin.tellg();
     const size_t      buf_size  = static_cast<size_t>(fin_end - fin_begin);
-    std::vector<char> buf(buf_size);
+    std::vector<char> buf(buf_size);    //使用vector自动管理内存，创建对象的时候就分配需要的内存大小
 
     fin.seekg(0, std::ios::beg);
     fin.read(buf.data(), buf_size);
